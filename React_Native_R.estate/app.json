@@ -1,0 +1,89 @@
+{
+  "expo": {
+    "name": "NestAlbania",
+    "slug": "nestalbania",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "nestalbania",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.nestalbania.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to take photos for property listings and profile pictures.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photos to upload images for property listings and profile pictures.",
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to show nearby properties and provide location-based services.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location to show nearby properties and provide location-based services."
+      },
+      "config": {
+        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
+      },
+      "associatedDomains": [
+        "applinks:nestalbania.com"
+      ]
+    },
+    "android": {
+      "package": "com.nestalbania.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "nestalbania",
+              "host": "redirect"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+        }
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-router",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to upload property and profile images.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos for listings."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}

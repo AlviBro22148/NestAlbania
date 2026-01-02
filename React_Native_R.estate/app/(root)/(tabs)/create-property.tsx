@@ -1,0 +1,1158 @@
+import InputModal from "@/components/InputModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAlert } from "@/contexts/AlertContext";
+import api from "@/lib/axios-config";
+import { useFocusEffect } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import { Stack, router } from "expo-router";
+import React, { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+interface PropertyForm {
+  title: string;
+  description: string;
+  address: string;
+  price: string;
+  propertyType: string;
+  listingType: string;
+  city: string;
+  neighborhood: string;
+  zipCode: string;
+  bedrooms: string;
+  bathrooms: string;
+  area: string;
+  lotSize: string;
+  parkingSpaces: string;
+  hasGarage: boolean;
+  yearBuilt: string;
+  isPetFriendly: boolean;
+  hasInUnitLaundry: boolean;
+  hasPool: boolean;
+  hasGym: boolean;
+  hasAirConditioning: boolean;
+  monthlyRent: string;
+  leaseTermMonths: string;
+  securityDeposit: string;
+  utilitiesIncluded: boolean;
+  furnishedStatus: string;
+  // Green Features
+  hasSolarPanels: boolean;
+  hasEnergyEfficientAppliances: boolean;
+  hasLEDLighting: boolean;
+  hasSmartThermostats: boolean;
+  hasDoubleGlazedWindows: boolean;
+  hasRainwaterHarvesting: boolean;
+  hasGreenRoof: boolean;
+  hasEnergyStarCertification: boolean;
+  hasLEEDCertification: boolean;
+  leedLevel: string;
+}
+
+const defaultForm: PropertyForm = {
+  title: "",
+  description: "",
+  address: "",
+  price: "",
+  propertyType: "Apartment",
+  listingType: "Sale",
+  city: "",
+  neighborhood: "",
+  zipCode: "",
+  bedrooms: "",
+  bathrooms: "",
+  area: "",
+  lotSize: "",
+  parkingSpaces: "0",
+  hasGarage: false,
+  yearBuilt: "",
+  isPetFriendly: false,
+  hasInUnitLaundry: false,
+  hasPool: false,
+  hasGym: false,
+  hasAirConditioning: false,
+  monthlyRent: "",
+  leaseTermMonths: "",
+  securityDeposit: "",
+  utilitiesIncluded: false,
+  furnishedStatus: "Unfurnished",
+  // Green Features
+  hasSolarPanels: false,
+  hasEnergyEfficientAppliances: false,
+  hasLEDLighting: false,
+  hasSmartThermostats: false,
+  hasDoubleGlazedWindows: false,
+  hasRainwaterHarvesting: false,
+  hasGreenRoof: false,
+  hasEnergyStarCertification: false,
+  hasLEEDCertification: false,
+  leedLevel: "",
+};
+
+const CreateProperty = () => {
+  const { user } = useAuth();
+  const { showAlert, showToast } = useAlert();
+  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [form, setForm] = useState<PropertyForm>(defaultForm);
+  const { t } = useTranslation();
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{
+    field: keyof PropertyForm;
+    title: string;
+    placeholder: string;
+    keyboardType: "default" | "numeric";
+    multiline: boolean;
+  } | null>(null);
+  const [tempValue, setTempValue] = useState("");
+
+  const propertyTypes = [
+    { name: t("properties.Apartment"), emoji: "🏢" },
+    { name: t("properties.House"), emoji: "🏠" },
+    { name: t("properties.Villa"), emoji: "🏡" },
+    { name: t("properties.Studio"), emoji: "🎬" },
+    { name: t("properties.Office"), emoji: "☕" },
+    { name: t("properties.Condo"), emoji: "🏘️" },
+    { name: t("properties.Townhouse"), emoji: "🏘️" },
+    { name: t("properties.Land"), emoji: "🌳" },
+  ];
+
+  const furnishedOptions = [
+    { value: "Unfurnished", label: t("properties.unfurnished"), emoji: "🏚️" },
+    {
+      value: "Semi-Furnished",
+      label: t("properties.semiFurnished"),
+      emoji: "🛋️",
+    },
+    {
+      value: "Fully-Furnished",
+      label: t("properties.fullyFurnished"),
+      emoji: "🏡",
+    },
+  ];
+
+  const leedLevels = [
+    { value: "", label: "None" },
+    { value: "Certified", label: "Certified" },
+    { value: "Silver", label: "Silver" },
+    { value: "Gold", label: "Gold" },
+    { value: "Platinum", label: "Platinum" },
+  ];
+
+  const openInputModal = (
+    field: keyof PropertyForm,
+    title: string,
+    placeholder: string,
+    keyboardType: "default" | "numeric" = "default",
+    multiline: boolean = false
+  ) => {
+    setTempValue(form[field] as string);
+    setModalConfig({ field, title, placeholder, keyboardType, multiline });
+    setModalVisible(true);
+  };
+
+  const saveFromModal = () => {
+    if (modalConfig) {
+      setForm({ ...form, [modalConfig.field]: tempValue });
+    }
+    setModalVisible(false);
+    setModalConfig(null);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      setForm(defaultForm);
+      setImages([]);
+      return () => {};
+    }, [])
+  );
+
+  const pickImages = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        showAlert({
+          type: "warning",
+          title: t("validation.permissionRequired"),
+          message: t("validation.photoAccessPermission"),
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+        selectionLimit: 10,
+      });
+
+      if (!result.canceled) {
+        const newImages = result.assets.map((asset) => asset.uri);
+        setImages([...images, ...newImages].slice(0, 10));
+      }
+    } catch (error) {
+      showAlert({
+        type: "error",
+        title: t("common.error"),
+        message: t("validation.failedToPickImages"),
+      });
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!form.title || !form.description || !form.address) {
+      showAlert({
+        type: "error",
+        title: t("common.error"),
+        message: t("validation.fillAllFields"),
+      });
+      return;
+    }
+
+    if (form.listingType === "Sale" && !form.price) {
+      showAlert({
+        type: "error",
+        title: t("common.error"),
+        message: t("validation.enterSalePrice"),
+      });
+      return;
+    }
+
+    if (form.listingType === "Rent" && !form.monthlyRent) {
+      showAlert({
+        type: "error",
+        title: t("common.error"),
+        message: t("validation.enterMonthlyRent"),
+      });
+      return;
+    }
+
+    if (images.length === 0) {
+      showAlert({
+        type: "error",
+        title: t("common.error"),
+        message: t("validation.addAtLeastOneImage"),
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("description", form.description);
+      formData.append("address", form.address);
+      formData.append(
+        "price",
+        form.listingType === "Sale" ? form.price : form.monthlyRent
+      );
+      formData.append("propertyType", form.propertyType);
+      formData.append("listingType", form.listingType);
+      formData.append("city", form.city);
+      formData.append("neighborhood", form.neighborhood);
+      formData.append("zipCode", form.zipCode);
+      formData.append("bedrooms", form.bedrooms || "0");
+      formData.append("bathrooms", form.bathrooms || "0");
+      formData.append("area", form.area || "0");
+      formData.append("lotSize", form.lotSize || "0");
+      formData.append("parkingSpaces", form.parkingSpaces || "0");
+      formData.append("hasGarage", form.hasGarage.toString());
+      formData.append("yearBuilt", form.yearBuilt || "");
+      formData.append("isPetFriendly", form.isPetFriendly.toString());
+      formData.append("hasInUnitLaundry", form.hasInUnitLaundry.toString());
+      formData.append("hasPool", form.hasPool.toString());
+      formData.append("hasGym", form.hasGym.toString());
+      formData.append("hasAirConditioning", form.hasAirConditioning.toString());
+
+      // Rental-specific fields
+      if (form.listingType === "Rent") {
+        formData.append("monthlyRent", form.monthlyRent);
+        formData.append("leaseTermMonths", form.leaseTermMonths || "");
+        formData.append("securityDeposit", form.securityDeposit || "");
+        formData.append("utilitiesIncluded", form.utilitiesIncluded.toString());
+        formData.append("furnishedStatus", form.furnishedStatus);
+      }
+
+      // Green Features
+      formData.append("hasSolarPanels", form.hasSolarPanels.toString());
+      formData.append(
+        "hasEnergyEfficientAppliances",
+        form.hasEnergyEfficientAppliances.toString()
+      );
+      formData.append("hasLEDLighting", form.hasLEDLighting.toString());
+      formData.append(
+        "hasSmartThermostats",
+        form.hasSmartThermostats.toString()
+      );
+      formData.append(
+        "hasDoubleGlazedWindows",
+        form.hasDoubleGlazedWindows.toString()
+      );
+      formData.append(
+        "hasRainwaterHarvesting",
+        form.hasRainwaterHarvesting.toString()
+      );
+      formData.append("hasGreenRoof", form.hasGreenRoof.toString());
+      formData.append(
+        "hasEnergyStarCertification",
+        form.hasEnergyStarCertification.toString()
+      );
+      formData.append(
+        "hasLEEDCertification",
+        form.hasLEEDCertification.toString()
+      );
+      formData.append("leedLevel", form.leedLevel || "");
+
+      for (let i = 0; i < images.length; i++) {
+        const uri = images[i];
+        const filename = uri.split("/").pop() || `image${i}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : "image/jpeg";
+        formData.append("images", { uri, name: filename, type } as any);
+      }
+
+      await api.post("/api/properties/create", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      showAlert({
+        type: "success",
+        title: t("common.success"),
+        message: t("properties.propertyCreated"),
+        buttons: [
+          {
+            text: "OK",
+            onPress: () => router.push("/user-properties"),
+            style: "default"
+          },
+        ],
+      });
+    } catch (error: any) {
+      showAlert({
+        type: "error",
+        title: t("common.error"),
+        message: error.response?.data?.message || t("validation.failedToCreateProperty"),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView className="bg-white h-full">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          className="px-6"
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
+          <View className="py-6">
+            <Text className="text-3xl font-rubik-extrabold text-black-300 mt-2">
+              {t("properties.listYourProperty")}
+            </Text>
+            <Text className="text-base font-rubik text-gray-500 mt-2">
+              {t("properties.fillDetailsToStart")}
+            </Text>
+          </View>
+
+          {/* Images */}
+          <View className="mb-6 bg-white rounded p-5 shadow-sm border border-gray-100">
+            <View className="flex-row items-center justify-between mb-4">
+              <View>
+                <Text className="text-xl font-rubik-bold text-black-300 ml-1">
+                  📸 {t("properties.propertyPhotos")}
+                </Text>
+                <Text className="text-sm font-rubik text-gray-600 mt-1 ml-1">
+                  {t("properties.addUpTo10Images")}
+                </Text>
+              </View>
+              <View className="bg-white px-3 py-1.5 rounded-full">
+                <Text className="text-sm font-rubik-bold text-primary-300">
+                  {images.length}/10
+                </Text>
+              </View>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {images.map((uri, index) => (
+                <View key={index} className="mr-3 relative">
+                  <Image source={{ uri }} className="w-36 h-36 rounded-xl" />
+                  <TouchableOpacity
+                    onPress={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 rounded-full w-8 h-8 items-center justify-center"
+                  >
+                    <Text className="text-white font-rubik-bold text-lg">
+                      ×
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {images.length < 10 && (
+                <TouchableOpacity
+                  onPress={pickImages}
+                  className="w-36 h-36 border-2 border-dashed border-primary-300 bg-white rounded-xl items-center justify-center"
+                >
+                  <Text className="text-5xl text-primary-300 mb-2">+</Text>
+                  <Text className="text-primary-300 font-rubik-bold text-sm">
+                    {t("properties.addPhotos")}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+
+          {/* Listing Type Section */}
+          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+              💼 {t("properties.listingType")}
+            </Text>
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => setForm({ ...form, listingType: "Sale" })}
+                className={`flex-1 py-4 rounded-xl ${
+                  form.listingType === "Sale" ? "bg-primary-300" : "bg-gray-100"
+                }`}
+              >
+                <Text
+                  className={`text-center font-rubik-bold ${
+                    form.listingType === "Sale" ? "text-white" : "text-gray-700"
+                  }`}
+                >
+                  🏷️ {t("properties.forSale")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setForm({ ...form, listingType: "Rent" })}
+                className={`flex-1 py-4 rounded-xl ${
+                  form.listingType === "Rent" ? "bg-primary-300" : "bg-gray-100"
+                }`}
+              >
+                <Text
+                  className={`text-center font-rubik-bold ${
+                    form.listingType === "Rent" ? "text-white" : "text-gray-700"
+                  }`}
+                >
+                  🔑 {t("properties.forRent")}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Basic Info */}
+          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+              🏠 {t("properties.basicInformation")}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() =>
+                openInputModal(
+                  "title",
+                  t("properties.propertyTitle"),
+                  t("placeholders.enterPropertyTitle")
+                )
+              }
+              className="mb-4"
+            >
+              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                {t("properties.propertyTitle")} *
+              </Text>
+              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <Text
+                  className={`font-rubik text-base ${form.title ? "text-black" : "text-gray-400"}`}
+                >
+                  {form.title || t("placeholders.enterPropertyTitle")}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <View className="mb-4">
+              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                {t("properties.propertyType")} *
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {propertyTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type.name}
+                    onPress={() =>
+                      setForm({ ...form, propertyType: type.name })
+                    }
+                    className={`px-4 py-2.5 rounded-xl ${
+                      form.propertyType === type.name
+                        ? "bg-primary-300"
+                        : "bg-gray-100"
+                    }`}
+                  >
+                    <Text
+                      className={`font-rubik-bold ${
+                        form.propertyType === type.name
+                          ? "text-white"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      {type.emoji} {type.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Conditional Price/Rent Input */}
+          {form.listingType === "Sale" ? (
+            <TouchableOpacity
+              onPress={() =>
+                openInputModal(
+                  "price",
+                  t("properties.price"),
+                  "250000",
+                  "numeric"
+                )
+              }
+              className="mb-4"
+            >
+              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                {t("properties.price")} ($) *
+              </Text>
+              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <Text className="text-2xl font-rubik-bold text-primary-300 mr-2">
+                  $
+                </Text>
+                <Text
+                  className={`font-rubik-bold text-base ${form.price ? "text-black" : "text-gray-400"}`}
+                >
+                  {form.price || "250,000"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={() =>
+                openInputModal(
+                  "monthlyRent",
+                  t("properties.monthlyRent"),
+                  "1500",
+                  "numeric"
+                )
+              }
+              className="mb-4"
+            >
+              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                {t("properties.monthlyRent")} ($) *
+              </Text>
+              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <Text className="text-2xl font-rubik-bold text-primary-300 mr-2">
+                  $
+                </Text>
+                <Text
+                  className={`font-rubik-bold text-base ${form.monthlyRent ? "text-black" : "text-gray-400"}`}
+                >
+                  {form.monthlyRent || "1,500"} / {t("properties.month")}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Rental-Specific Section */}
+          {form.listingType === "Rent" && (
+            <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+                🔑 {t("properties.rentalDetails")}
+              </Text>
+
+              <View className="flex-row gap-3 mb-4">
+                <TouchableOpacity
+                  onPress={() =>
+                    openInputModal(
+                      "leaseTermMonths",
+                      t("properties.leaseTerm"),
+                      "12",
+                      "numeric"
+                    )
+                  }
+                  className="flex-1"
+                >
+                  <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                    {t("properties.leaseTerm")} ({t("properties.months")})
+                  </Text>
+                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                    <Text
+                      className={`font-rubik text-base ${form.leaseTermMonths ? "text-black" : "text-gray-400"}`}
+                    >
+                      {form.leaseTermMonths || "12"} {t("properties.months")}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() =>
+                    openInputModal(
+                      "securityDeposit",
+                      t("properties.securityDeposit"),
+                      "1500",
+                      "numeric"
+                    )
+                  }
+                  className="flex-1"
+                >
+                  <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                    {t("properties.securityDeposit")} ($)
+                  </Text>
+                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                    <Text
+                      className={`font-rubik text-base ${form.securityDeposit ? "text-black" : "text-gray-400"}`}
+                    >
+                      ${form.securityDeposit || "1,500"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <View className="mb-4">
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  {t("properties.furnishedStatus")}
+                </Text>
+                <View className="flex-row gap-2">
+                  {furnishedOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      onPress={() =>
+                        setForm({ ...form, furnishedStatus: option.value })
+                      }
+                      className={`flex-1 py-3 rounded-xl ${
+                        form.furnishedStatus === option.value
+                          ? "bg-primary-300"
+                          : "bg-gray-100"
+                      }`}
+                    >
+                      <Text
+                        className={`text-center font-rubik-bold text-xs ${
+                          form.furnishedStatus === option.value
+                            ? "text-white"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {option.emoji} {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View className="bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between">
+                <View className="flex-row items-center">
+                  <Text className="text-2xl mr-3">⚡</Text>
+                  <Text className="font-rubik-semibold text-black-300">
+                    {t("properties.utilitiesIncluded")}
+                  </Text>
+                </View>
+                <Switch
+                  value={form.utilitiesIncluded}
+                  onValueChange={(value) =>
+                    setForm({ ...form, utilitiesIncluded: value })
+                  }
+                  trackColor={{ false: "#d1d5db", true: "#0061FF" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Location - keeping existing code */}
+          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+              📍 {t("properties.locationDetails")}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() =>
+                openInputModal(
+                  "address",
+                  t("properties.fullAddress"),
+                  t("placeholders.enterAddress")
+                )
+              }
+              className="mb-4"
+            >
+              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                {t("properties.fullAddress")} *
+              </Text>
+              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <Text
+                  className={`font-rubik text-base ${form.address ? "text-black" : "text-gray-400"}`}
+                >
+                  {form.address || t("placeholders.enterAddress")}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <View className="flex-row gap-3 mb-4">
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "city",
+                    t("properties.city"),
+                    t("placeholders.enterCity")
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  {t("properties.city")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik text-base ${form.city ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.city || t("placeholders.enterCity")}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "zipCode",
+                    t("properties.zipCode"),
+                    t("placeholders.enterZipCode"),
+                    "numeric"
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  {t("properties.zipCode")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik text-base ${form.zipCode ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.zipCode || t("placeholders.enterZipCode")}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              onPress={() =>
+                openInputModal(
+                  "neighborhood",
+                  t("properties.neighborhood"),
+                  t("placeholders.enterNeighborhood")
+                )
+              }
+            >
+              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                {t("properties.neighborhood")}
+              </Text>
+              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <Text
+                  className={`font-rubik text-base ${form.neighborhood ? "text-black" : "text-gray-400"}`}
+                >
+                  {form.neighborhood || t("placeholders.enterNeighborhood")}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Size & Rooms - keeping existing */}
+          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+              📐 {t("properties.sizeAndRooms")}
+            </Text>
+
+            <View className="flex-row gap-3 mb-4">
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "bedrooms",
+                    "🛏️ " + t("properties.bedrooms"),
+                    "3",
+                    "numeric"
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  🛏️ {t("properties.bedrooms")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik-bold text-base text-center ${form.bedrooms ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.bedrooms || "3"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "bathrooms",
+                    "🚿 " + t("properties.bathrooms"),
+                    "2",
+                    "numeric"
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  🚿 {t("properties.bathrooms")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik-bold text-base text-center ${form.bathrooms ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.bathrooms || "2"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <View className="flex-row gap-3 mb-4">
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "area",
+                    t("properties.area") + " (sq m)",
+                    "150",
+                    "numeric"
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  {t("properties.area")} {t("properties.squaremeter")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik text-base ${form.area ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.area || "150"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "lotSize",
+                    t("properties.lotSize") + " (sq m)",
+                    "200",
+                    "numeric"
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  {t("properties.lotSize")} {t("properties.squaremeter")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik text-base ${form.lotSize ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.lotSize || "200"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Features */}
+          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+              ✨ {t("properties.propertyFeatures")}
+            </Text>
+
+            <View className="flex-row gap-3 mb-4">
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "parkingSpaces",
+                    "🚗 " + t("properties.parkingSpaces"),
+                    "2",
+                    "numeric"
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  🚗 {t("properties.parkingSpaces")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik-bold text-base text-center ${form.parkingSpaces ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.parkingSpaces || "0"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  openInputModal(
+                    "yearBuilt",
+                    "📅 " + t("properties.yearBuilt"),
+                    "2020",
+                    "numeric"
+                  )
+                }
+                className="flex-1"
+              >
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  📅 {t("properties.yearBuilt")}
+                </Text>
+                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <Text
+                    className={`font-rubik text-base text-center ${form.yearBuilt ? "text-black" : "text-gray-400"}`}
+                  >
+                    {form.yearBuilt || "2020"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <View className="bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <Text className="text-2xl mr-3">🚙</Text>
+                <Text className="font-rubik-semibold text-black-300">
+                  {t("properties.hasGarage")}
+                </Text>
+              </View>
+              <Switch
+                value={form.hasGarage}
+                onValueChange={(value) =>
+                  setForm({ ...form, hasGarage: value })
+                }
+                trackColor={{ false: "#d1d5db", true: "#0061FF" }}
+                thumbColor="#ffffff"
+              />
+            </View>
+          </View>
+
+          {/* Amenities */}
+          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+              🎯 {t("properties.amenities")}
+            </Text>
+
+            {[
+              {
+                key: "isPetFriendly",
+                label: t("properties.petFriendly"),
+                emoji: "🐾",
+              },
+              {
+                key: "hasInUnitLaundry",
+                label: t("properties.inUnitLaundry"),
+                emoji: "🧺",
+              },
+              {
+                key: "hasPool",
+                label: t("properties.swimmingPool"),
+                emoji: "🏊",
+              },
+              { key: "hasGym", label: t("properties.gymFitness"), emoji: "💪" },
+              {
+                key: "hasAirConditioning",
+                label: t("properties.airConditioning"),
+                emoji: "❄️",
+              },
+            ].map(({ key, label, emoji }, index) => (
+              <View
+                key={key}
+                className={`bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between ${index < 4 ? "mb-3" : ""}`}
+              >
+                <View className="flex-row items-center">
+                  <Text className="text-2xl mr-3">{emoji}</Text>
+                  <Text className="font-rubik-semibold text-black-300">
+                    {label}
+                  </Text>
+                </View>
+                <Switch
+                  value={form[key as keyof PropertyForm] as boolean}
+                  onValueChange={(value) => setForm({ ...form, [key]: value })}
+                  trackColor={{ false: "#d1d5db", true: "#0061FF" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            ))}
+          </View>
+
+          {/* 🌿 GREEN FEATURES SECTION */}
+          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-green-200">
+            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+              🌿 {t("greenHomes.greenFeatures") || "Green Features"}
+            </Text>
+
+            {[
+              {
+                key: "hasSolarPanels",
+                label: `☀️ ${t("greenHomes.solarPanels") || "Solar Panels"}`,
+              },
+              {
+                key: "hasEnergyEfficientAppliances",
+                label: `⚡ ${t("greenHomes.energyEfficientAppliances") || "Energy Efficient Appliances"}`,
+              },
+              {
+                key: "hasLEDLighting",
+                label: `💡 ${t("greenHomes.ledLighting") || "LED Lighting"}`,
+              },
+              {
+                key: "hasSmartThermostats",
+                label: `🌡️ ${t("greenHomes.smartThermostats") || "Smart Thermostats"}`,
+              },
+              {
+                key: "hasDoubleGlazedWindows",
+                label: `🪟 ${t("greenHomes.doubleGlazedWindows") || "Double Glazed Windows"}`,
+              },
+              {
+                key: "hasRainwaterHarvesting",
+                label: `💧 ${t("greenHomes.rainwaterHarvesting") || "Rainwater Harvesting"}`,
+              },
+              {
+                key: "hasGreenRoof",
+                label: `🌱 ${t("greenHomes.greenRoof") || "Green Roof"}`,
+              },
+              {
+                key: "hasEnergyStarCertification",
+                label: `⭐ ${t("greenHomes.energyStar") || "Energy Star Certified"}`,
+              },
+              {
+                key: "hasLEEDCertification",
+                label: `🏆 ${t("greenHomes.leed") || "LEED Certified"}`,
+              },
+            ].map(({ key, label }, index) => (
+              <View
+                key={key}
+                className={`bg-green-50 rounded-xl px-4 py-4 flex-row items-center justify-between ${index < 8 ? "mb-3" : ""}`}
+              >
+                <Text className="font-rubik-semibold text-black-300">
+                  {label}
+                </Text>
+                <Switch
+                  value={form[key as keyof PropertyForm] as boolean}
+                  onValueChange={(value) => setForm({ ...form, [key]: value })}
+                  trackColor={{ false: "#d1d5db", true: "#10B981" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            ))}
+
+            {/* LEED Level Dropdown */}
+            {form.hasLEEDCertification && (
+              <View className="mt-4">
+                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  LEED Level
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {leedLevels.map((level) => (
+                    <TouchableOpacity
+                      key={level.value}
+                      onPress={() =>
+                        setForm({ ...form, leedLevel: level.value })
+                      }
+                      className={`px-4 py-2.5 rounded-xl ${
+                        form.leedLevel === level.value
+                          ? "bg-green-600"
+                          : "bg-gray-100"
+                      }`}
+                    >
+                      <Text
+                        className={`font-rubik-bold ${
+                          form.leedLevel === level.value
+                            ? "text-white"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        {level.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Description */}
+          <TouchableOpacity
+            onPress={() =>
+              openInputModal(
+                "description",
+                "📝 " + t("properties.description"),
+                t("properties.describeProperty"),
+                "default",
+                true
+              )
+            }
+            className="mb-6"
+          >
+            <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+                📝 {t("properties.description")}
+              </Text>
+              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 min-h-32">
+                <Text
+                  className={`font-rubik text-base ${form.description ? "text-black" : "text-gray-400"}`}
+                >
+                  {form.description || t("properties.describeProperty")}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Submit */}
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={loading}
+            className="bg-primary-300 rounded-2xl py-5 mb-10"
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text className="text-white text-center font-rubik-extrabold text-lg">
+                {t("properties.createProperty")}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+
+      {modalConfig && (
+        <InputModal
+          visible={modalVisible}
+          title={modalConfig.title}
+          placeholder={modalConfig.placeholder}
+          value={tempValue}
+          onChangeText={setTempValue}
+          onClose={() => setModalVisible(false)}
+          onSave={saveFromModal}
+          keyboardType={modalConfig.keyboardType}
+          multiline={modalConfig.multiline}
+          numberOfLines={modalConfig.multiline ? 6 : 1}
+        />
+      )}
+    </>
+  );
+};
+
+export default CreateProperty;
