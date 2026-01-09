@@ -16,16 +16,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Property types available (matching app's property types)
+// Property types with translation keys
 const PROPERTY_TYPES = [
-  { label: "Apartment", icon: "🏢" },
-  { label: "House", icon: "🏠" },
-  { label: "Villa", icon: "🏡" },
-  { label: "Studio", icon: "🎬" },
-  { label: "Office", icon: "☕" },
-  { label: "Condo", icon: "🏘️" },
-  { label: "Townhouse", icon: "🏘️" },
-  { label: "Land", icon: "🌳" },
+  { key: "apartment", icon: "🏢" },
+  { key: "house", icon: "🏠" },
+  { key: "villa", icon: "🏡" },
+  { key: "studio", icon: "🎬" },
+  { key: "office", icon: "☕" },
+  { key: "condo", icon: "🏘️" },
+  { key: "townhouse", icon: "🏘️" },
+  { key: "land", icon: "🌳" },
 ];
 
 // Bedroom/Bathroom options
@@ -37,21 +37,21 @@ const ROOM_OPTIONS = [
   { label: "5+", value: 5 },
 ];
 
-// Listing type options
+// Listing type options with translation keys
 const LISTING_TYPES = [
-  { label: "Buy", value: "Sale", icon: "🏷️" },
-  { label: "Rent", value: "Rent", icon: "🔑" },
-  { label: "Both", value: "Both", icon: "✨" },
+  { key: "sale", value: "Sale", icon: "🏷️" },
+  { key: "rent", value: "Rent", icon: "🔑" },
+  { key: "both", value: "Both", icon: "✨" },
 ];
 
-// Amenity options
+// Amenity options with translation keys
 const AMENITIES = [
-  { key: "garage", label: "Garage", icon: "🚗" },
-  { key: "petFriendly", label: "Pet Friendly", icon: "🐕" },
-  { key: "pool", label: "Pool", icon: "🏊" },
-  { key: "gym", label: "Gym", icon: "💪" },
-  { key: "airConditioning", label: "A/C", icon: "❄️" },
-  { key: "greenHomes", label: "Eco", icon: "🌿" },
+  { key: "garage", icon: "🚗" },
+  { key: "petFriendly", icon: "🐕" },
+  { key: "pool", icon: "🏊" },
+  { key: "gym", icon: "💪" },
+  { key: "airConditioning", icon: "❄️" },
+  { key: "greenHomes", icon: "🌿" },
 ];
 
 export default function EditPreferencesScreen() {
@@ -68,7 +68,7 @@ export default function EditPreferencesScreen() {
     clearPreferences,
   } = useUserPreferences();
 
-  // Form state
+  // Form state - store the actual values (capitalized) for API
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
   const [minBedrooms, setMinBedrooms] = useState<number | null>(null);
   const [maxBedrooms, setMaxBedrooms] = useState<number | null>(null);
@@ -111,10 +111,21 @@ export default function EditPreferencesScreen() {
     }
   }, [preferences]);
 
-  const togglePropertyType = (type: string) => {
+  // Helper to get capitalized property type for API
+  const getPropertyTypeValue = (key: string) => {
+    return key.charAt(0).toUpperCase() + key.slice(1);
+  };
+
+  const togglePropertyType = (key: string) => {
+    const value = getPropertyTypeValue(key);
     setSelectedPropertyTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]
     );
+  };
+
+  const isPropertyTypeSelected = (key: string) => {
+    const value = getPropertyTypeValue(key);
+    return selectedPropertyTypes.includes(value);
   };
 
   const toggleCity = (city: string) => {
@@ -252,7 +263,7 @@ export default function EditPreferencesScreen() {
             <Text className="text-2xl mr-3">🎯</Text>
             <View className="flex-1">
               <Text className="text-primary-300 font-rubik-bold text-base">
-                Personalized Recommendations
+                {t("preferences.personalizedRecommendations")}
               </Text>
               <Text className="text-primary-300/70 font-rubik text-sm mt-0.5">
                 {t("preferences.preferencesDescription")}
@@ -264,7 +275,7 @@ export default function EditPreferencesScreen() {
         {/* Listing Type */}
         <View className="mx-5 mt-6">
           <Text className="text-lg font-rubik-bold text-black-300 mb-3">
-            I want to
+            {t("preferences.iWantTo")}
           </Text>
           <View className="flex-row">
             {LISTING_TYPES.map((type) => (
@@ -283,7 +294,7 @@ export default function EditPreferencesScreen() {
                     listingType === type.value ? "text-white" : "text-black-300"
                   }`}
                 >
-                  {type.label}
+                  {t(`preferences.${type.key}`)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -293,15 +304,15 @@ export default function EditPreferencesScreen() {
         {/* Property Types */}
         <View className="mx-5 mt-6">
           <Text className="text-lg font-rubik-bold text-black-300 mb-3">
-            Property Types
+            {t("preferences.propertyTypes")}
           </Text>
           <View className="flex-row flex-wrap">
             {PROPERTY_TYPES.map((type) => (
               <TouchableOpacity
-                key={type.label}
-                onPress={() => togglePropertyType(type.label)}
+                key={type.key}
+                onPress={() => togglePropertyType(type.key)}
                 className={`w-[23%] m-[1%] p-3 rounded-xl border items-center ${
-                  selectedPropertyTypes.includes(type.label)
+                  isPropertyTypeSelected(type.key)
                     ? "bg-primary-100 border-primary-300"
                     : "bg-white border-gray-200"
                 }`}
@@ -309,12 +320,12 @@ export default function EditPreferencesScreen() {
                 <Text className="text-2xl mb-1">{type.icon}</Text>
                 <Text
                   className={`font-rubik text-xs text-center ${
-                    selectedPropertyTypes.includes(type.label)
+                    isPropertyTypeSelected(type.key)
                       ? "text-primary-300"
                       : "text-black-300"
                   }`}
                 >
-                  {type.label}
+                  {t(`preferences.${type.key}`)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -325,9 +336,13 @@ export default function EditPreferencesScreen() {
         <View className="mx-5 mt-6 bg-white rounded-2xl p-4 border border-gray-100">
           <View className="flex-row items-center mb-3">
             <Text className="text-2xl mr-2">🛏️</Text>
-            <Text className="text-base font-rubik-bold text-black-300">Bedrooms</Text>
+            <Text className="text-base font-rubik-bold text-black-300">
+              {t("preferences.bedrooms")}
+            </Text>
           </View>
-          <Text className="text-xs font-rubik text-gray-500 mb-2">Min</Text>
+          <Text className="text-xs font-rubik text-gray-500 mb-2">
+            {t("preferences.min")}
+          </Text>
           <View className="flex-row mb-3">
             {ROOM_OPTIONS.map((option) => (
               <TouchableOpacity
@@ -343,7 +358,9 @@ export default function EditPreferencesScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <Text className="text-xs font-rubik text-gray-500 mb-2">Max</Text>
+          <Text className="text-xs font-rubik text-gray-500 mb-2">
+            {t("preferences.max")}
+          </Text>
           <View className="flex-row">
             {ROOM_OPTIONS.map((option) => (
               <TouchableOpacity
@@ -365,9 +382,13 @@ export default function EditPreferencesScreen() {
         <View className="mx-5 mt-4 bg-white rounded-2xl p-4 border border-gray-100">
           <View className="flex-row items-center mb-3">
             <Text className="text-2xl mr-2">🚿</Text>
-            <Text className="text-base font-rubik-bold text-black-300">Bathrooms</Text>
+            <Text className="text-base font-rubik-bold text-black-300">
+              {t("preferences.bathrooms")}
+            </Text>
           </View>
-          <Text className="text-xs font-rubik text-gray-500 mb-2">Min</Text>
+          <Text className="text-xs font-rubik text-gray-500 mb-2">
+            {t("preferences.min")}
+          </Text>
           <View className="flex-row mb-3">
             {ROOM_OPTIONS.map((option) => (
               <TouchableOpacity
@@ -383,7 +404,9 @@ export default function EditPreferencesScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <Text className="text-xs font-rubik text-gray-500 mb-2">Max</Text>
+          <Text className="text-xs font-rubik text-gray-500 mb-2">
+            {t("preferences.max")}
+          </Text>
           <View className="flex-row">
             {ROOM_OPTIONS.map((option) => (
               <TouchableOpacity
@@ -405,11 +428,15 @@ export default function EditPreferencesScreen() {
         <View className="mx-5 mt-4 bg-white rounded-2xl p-4 border border-gray-100">
           <View className="flex-row items-center mb-3">
             <Text className="text-2xl mr-2">💰</Text>
-            <Text className="text-base font-rubik-bold text-black-300">Price Range</Text>
+            <Text className="text-base font-rubik-bold text-black-300">
+              {t("preferences.priceRange")}
+            </Text>
           </View>
           <View className="flex-row">
             <View className="flex-1 mr-2">
-              <Text className="text-xs font-rubik text-gray-500 mb-2">Min (€)</Text>
+              <Text className="text-xs font-rubik text-gray-500 mb-2">
+                {t("preferences.min")} (€)
+              </Text>
               <TextInput
                 className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-rubik text-black-300"
                 placeholder="0"
@@ -420,10 +447,12 @@ export default function EditPreferencesScreen() {
               />
             </View>
             <View className="flex-1 ml-2">
-              <Text className="text-xs font-rubik text-gray-500 mb-2">Max (€)</Text>
+              <Text className="text-xs font-rubik text-gray-500 mb-2">
+                {t("preferences.max")} (€)
+              </Text>
               <TextInput
                 className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 font-rubik text-black-300"
-                placeholder="No limit"
+                placeholder={t("preferences.noLimit")}
                 value={maxPrice}
                 onChangeText={setMaxPrice}
                 keyboardType="numeric"
@@ -437,7 +466,9 @@ export default function EditPreferencesScreen() {
         <View className="mx-5 mt-4 bg-white rounded-2xl p-4 border border-gray-100">
           <View className="flex-row items-center mb-3">
             <Text className="text-2xl mr-2">📍</Text>
-            <Text className="text-base font-rubik-bold text-black-300">Preferred Cities</Text>
+            <Text className="text-base font-rubik-bold text-black-300">
+              {t("preferences.preferredCities")}
+            </Text>
           </View>
           <View className="flex-row flex-wrap">
             {ALBANIAN_CITIES.slice(0, 12).map((city) => (
@@ -462,7 +493,7 @@ export default function EditPreferencesScreen() {
           </View>
           {selectedCities.length > 0 && (
             <Text className="text-xs font-rubik text-gray-500 mt-2">
-              Selected: {selectedCities.join(", ")}
+              {t("preferences.selected")}: {selectedCities.join(", ")}
             </Text>
           )}
         </View>
@@ -471,7 +502,9 @@ export default function EditPreferencesScreen() {
         <View className="mx-5 mt-4 bg-white rounded-2xl p-4 border border-gray-100">
           <View className="flex-row items-center mb-3">
             <Text className="text-2xl mr-2">✨</Text>
-            <Text className="text-base font-rubik-bold text-black-300">Must-have Features</Text>
+            <Text className="text-base font-rubik-bold text-black-300">
+              {t("preferences.mustHaveFeatures")}
+            </Text>
           </View>
           <View className="flex-row flex-wrap">
             {AMENITIES.map((amenity) => (
@@ -490,7 +523,7 @@ export default function EditPreferencesScreen() {
                     isAmenitySelected(amenity.key) ? "text-primary-300" : "text-black-300"
                   }`}
                 >
-                  {amenity.label}
+                  {t(`preferences.${amenity.key}`)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -508,7 +541,7 @@ export default function EditPreferencesScreen() {
               <ActivityIndicator color="white" />
             ) : (
               <Text className="text-center font-rubik-bold text-white text-lg">
-                Save Preferences
+                {t("preferences.savePreferences")}
               </Text>
             )}
           </TouchableOpacity>
@@ -520,7 +553,7 @@ export default function EditPreferencesScreen() {
               className="bg-white py-4 rounded-2xl border border-gray-200"
             >
               <Text className="text-center font-rubik-bold text-gray-500 text-lg">
-                Clear Preferences
+                {t("preferences.clearPreferences")}
               </Text>
             </TouchableOpacity>
           )}
