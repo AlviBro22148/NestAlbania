@@ -4,7 +4,8 @@
 
 import icons from "@/constants/icons";
 import { useAlert } from "@/contexts/AlertContext";
-import api from "@/lib/axios-config"; // ✅ ADDED: Import axios
+import { useBackNavigation } from "@/hooks/useBackNavigation";
+import api from "@/lib/axios-config";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -32,6 +33,7 @@ interface NewsArticle {
 export default function NewsScreen() {
   const { t } = useTranslation();
   const { showAlert } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -192,9 +194,17 @@ export default function NewsScreen() {
         ListHeaderComponent={
           <View className="px-5 pt-5 mb-4">
             <View className="flex flex-row items-center justify-between mb-2">
-              <Text className="text-2xl font-rubik-bold text-black-300">
-                {t("news.title")}
-              </Text>
+              <View className="flex-row items-center">
+                <TouchableOpacity
+                  onPress={handleBack}
+                  className="w-10 h-10 items-center justify-center rounded-full bg-gray-100 mr-3"
+                >
+                  <Image source={icons.backArrow} className="w-5 h-5" />
+                </TouchableOpacity>
+                <Text className="text-2xl font-rubik-bold text-black-300">
+                  {t("news.title")}
+                </Text>
+              </View>
               <View className="bg-red-100 px-3 py-1 rounded-full">
                 <Text className="text-red-600 text-xs font-rubik-bold">
                   • LIVE

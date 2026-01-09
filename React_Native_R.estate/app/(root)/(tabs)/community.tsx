@@ -1,5 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
+import icons from "@/constants/icons";
 import api from "@/lib/axios-config";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -33,6 +35,7 @@ const CommunityScreen = () => {
   const { user } = useAuth();
   const { showToast } = useAlert();
   const { t } = useTranslation();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -159,9 +162,17 @@ const CommunityScreen = () => {
       {/* Header */}
       <View className="px-6 py-4 bg-white border-b border-gray-200">
         <View className="flex-row justify-between items-center">
-          <Text className="text-2xl font-rubik-bold text-black-300">
-            {t("community.title")}
-          </Text>
+          <View className="flex-row items-center">
+            <TouchableOpacity
+              onPress={handleBack}
+              className="w-10 h-10 items-center justify-center rounded-full bg-gray-100 mr-3"
+            >
+              <Image source={icons.backArrow} className="w-5 h-5" />
+            </TouchableOpacity>
+            <Text className="text-2xl font-rubik-bold text-black-300">
+              {t("community.title")}
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() =>
               router.push("/(root)/(tabs)/community/create" as any)

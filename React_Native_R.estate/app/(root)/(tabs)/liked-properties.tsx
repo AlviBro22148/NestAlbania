@@ -1,5 +1,7 @@
 import ComparisonFloatingButton from "@/components/ComparisonFloatingButton";
 import PropertyCard from "@/components/PropertyCard";
+import icons from "@/constants/icons";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -9,8 +11,10 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   RefreshControl,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,6 +41,7 @@ const LikedProperties = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { t } = useTranslation();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
 
   const fetchLikedProperties = async () => {
     try {
@@ -115,6 +120,14 @@ const LikedProperties = () => {
           end={{ x: 1, y: 1 }}
           className="px-6 py-8 rounded-b-[32px] shadow-lg"
         >
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={handleBack}
+            className="w-10 h-10 items-center justify-center rounded-full bg-white/80 mb-4"
+          >
+            <Image source={icons.backArrow} className="w-5 h-5" />
+          </TouchableOpacity>
+
           <View className="flex-row items-center">
             {/* Animated Heart Container */}
             <View className="relative">

@@ -4,7 +4,14 @@ import { Stack } from "expo-router";
 export default function RootGroupLayout() {
   return (
     <NavigationProvider>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: true,
+          gestureDirection: "horizontal",
+          animation: "slide_from_right",
+        }}
+      >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(admin)" />
         <Stack.Screen name="chat" />

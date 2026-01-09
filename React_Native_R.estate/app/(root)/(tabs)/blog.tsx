@@ -1,6 +1,7 @@
 // app/(root)/(tabs)/blog.tsx
 import icons from "@/constants/icons";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -34,6 +35,7 @@ interface BlogArticle {
 export default function BlogScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [articles, setArticles] = useState<BlogArticle[]>([]);
@@ -253,9 +255,17 @@ export default function BlogScreen() {
           <>
             <View className="px-5 pt-5">
               <View className="flex flex-row items-center justify-between mb-2">
-                <Text className="text-2xl font-rubik-bold text-black-300">
-                  {t("blog.title")}
-                </Text>
+                <View className="flex-row items-center">
+                  <TouchableOpacity
+                    onPress={handleBack}
+                    className="w-10 h-10 items-center justify-center rounded-full bg-gray-100 mr-3"
+                  >
+                    <Image source={icons.backArrow} className="w-5 h-5" />
+                  </TouchableOpacity>
+                  <Text className="text-2xl font-rubik-bold text-black-300">
+                    {t("blog.title")}
+                  </Text>
+                </View>
 
                 {user?.role === "Admin" && (
                   <TouchableOpacity
