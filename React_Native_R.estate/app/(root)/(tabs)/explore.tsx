@@ -5,7 +5,7 @@ import icons from "@/constants/icons";
 import api from "@/lib/axios-config";
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -172,9 +172,32 @@ export default function ExploreScreen() {
   };
 
   // Handle property card press
-  const handlePropertyPress = (propertyId: number) => {
+  const handlePropertyPress = useCallback((propertyId: number) => {
     router.push(`/(root)/properties/${propertyId}`);
-  };
+  }, []);
+
+  // Memoized key extractor
+  const keyExtractor = useCallback((item: Property) => item.id.toString(), []);
+
+  // Memoized render item
+  const renderPropertyCard = useCallback(({ item }: { item: Property }) => (
+    <View className="px-6">
+      <PropertyCard
+        id={item.id}
+        title={item.title}
+        price={item.price}
+        address={item.address}
+        bedrooms={item.bedrooms}
+        bathrooms={item.bathrooms}
+        area={item.area}
+        images={item.images}
+        propertyType={item.propertyType}
+        listingType={item.listingType}
+        monthlyRent={item.monthlyRent ?? undefined}
+        onPress={() => handlePropertyPress(item.id)}
+      />
+    </View>
+  ), [handlePropertyPress]);
 
   // Render empty state
   const renderEmpty = () => {
@@ -270,25 +293,8 @@ export default function ExploreScreen() {
       ) : (
         <FlatList
           data={filteredProperties}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <View className="px-6">
-              <PropertyCard
-                id={item.id}
-                title={item.title}
-                price={item.price}
-                address={item.address}
-                bedrooms={item.bedrooms}
-                bathrooms={item.bathrooms}
-                area={item.area}
-                images={item.images}
-                propertyType={item.propertyType}
-                listingType={item.listingType}
-                monthlyRent={item.monthlyRent}
-                onPress={() => handlePropertyPress(item.id)}
-              />
-            </View>
-          )}
+          keyExtractor={keyExtractor}
+          renderItem={renderPropertyCard}
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -303,6 +309,15 @@ export default function ExploreScreen() {
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderEmpty}
+          initialNumToRender={5}
+          maxToRenderPerBatch={5}
+          windowSize={7}
+          removeClippedSubviews={true}
+          getItemLayout={(_, index) => ({
+            length: 280,
+            offset: 280 * index,
+            index,
+          })}
         />
       )}
 

@@ -4,10 +4,32 @@ import { router } from 'expo-router';
 
 const API_URL = "http://192.168.1.5:5175";
 
-// Create axios instance
+// In-memory token cache to avoid AsyncStorage reads on every request
+let cachedAccessToken: string | null = null;
+let cachedRefreshToken: string | null = null;
+let cachedUserId: string | null = null;
+
+// Initialize token cache from AsyncStorage
+const initTokenCache = async () => {
+  cachedAccessToken = await AsyncStorage.getItem('accessToken');
+  cachedRefreshToken = await AsyncStorage.getItem('refreshToken');
+  cachedUserId = await AsyncStorage.getItem('userId');
+};
+
+// Call on app start
+initTokenCache();
+
+// Request deduplication - prevent duplicate in-flight requests
+const pendingRequests = new Map<string, Promise<any>>();
+
+const getRequestKey = (config: InternalAxiosRequestConfig): string => {
+  return `${config.method}-${config.url}-${JSON.stringify(config.params || {})}`;
+};
+
+// Create axios instance with optimized settings
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 15000, // Slightly longer timeout for slow networks
   headers: {
     'Content-Type': 'application/json',
   },
@@ -31,12 +53,21 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor - Add token to every request
+// Request interceptor - Add token using cached value (faster than AsyncStorage)
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const token = await AsyncStorage.getItem('accessToken');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Use cached token for faster access
+    if (cachedAccessToken && config.headers) {
+      config.headers.Authorization = `Bearer ${cachedAccessToken}`;
+    } else {
+      // Fallback to AsyncStorage if cache is empty
+      const token = await AsyncStorage.getItem('accessToken');
+      if (token) {
+        cachedAccessToken = token;
+        if (config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
     }
     return config;
   },
@@ -82,8 +113,9 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
-      const userId = await AsyncStorage.getItem('userId');
+      // Use cached values first, fallback to AsyncStorage
+      const refreshToken = cachedRefreshToken || await AsyncStorage.getItem('refreshToken');
+      const userId = cachedUserId || await AsyncStorage.getItem('userId');
 
       if (!refreshToken || !userId) {
         // No tokens available - handle session expiration and redirect
@@ -101,10 +133,12 @@ api.interceptors.response.use(
 
       const { accessToken, refreshToken: newRefreshToken } = response.data;
 
-      // Store new tokens
+      // Store new tokens and update cache
       await AsyncStorage.setItem('accessToken', accessToken);
+      cachedAccessToken = accessToken;
       if (newRefreshToken) {
         await AsyncStorage.setItem('refreshToken', newRefreshToken);
+        cachedRefreshToken = newRefreshToken;
       }
 
       // Update the original request with new token
@@ -130,13 +164,17 @@ api.interceptors.response.use(
 // Handle session expiration - clear tokens and redirect to sign-in
 const handleSessionExpired = async () => {
   try {
+    // Clear both cache and AsyncStorage
+    cachedAccessToken = null;
+    cachedRefreshToken = null;
+    cachedUserId = null;
     await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userId']);
-    
+
     // Redirect to sign-in page
     // Use replace to prevent going back to authenticated pages
     router.replace('/auth/sign-in');
   } catch (error) {
-    console.error('Error during session cleanup:', error);
+    // Silent fail in production
   }
 };
 
@@ -147,12 +185,31 @@ export const logout = async () => {
 };
 
 export const isAuthenticated = async (): Promise<boolean> => {
+  // Use cached value first for faster check
+  if (cachedAccessToken) return true;
   const token = await AsyncStorage.getItem('accessToken');
+  if (token) cachedAccessToken = token;
   return !!token;
 };
 
 export const getToken = async (): Promise<string | null> => {
-  return await AsyncStorage.getItem('accessToken');
+  // Use cached value first
+  if (cachedAccessToken) return cachedAccessToken;
+  const token = await AsyncStorage.getItem('accessToken');
+  if (token) cachedAccessToken = token;
+  return token;
+};
+
+// Update cache when tokens are set externally (e.g., after login)
+export const updateTokenCache = (accessToken: string, refreshToken: string, userId: string) => {
+  cachedAccessToken = accessToken;
+  cachedRefreshToken = refreshToken;
+  cachedUserId = userId;
+};
+
+// Refresh the token cache from AsyncStorage
+export const refreshTokenCache = async () => {
+  await initTokenCache();
 };
 
 export default api;

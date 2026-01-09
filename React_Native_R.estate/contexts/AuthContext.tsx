@@ -1,12 +1,14 @@
-import api from "@/lib/axios-config";
+import api, { updateTokenCache } from "@/lib/axios-config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 
 import React, {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -185,16 +187,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Normal login (no 2FA)
       const { accessToken, refreshToken } = data;
 
-      // Store tokens
+      // Store tokens in both AsyncStorage and cache
       await AsyncStorage.setItem("accessToken", accessToken);
       await AsyncStorage.setItem("refreshToken", refreshToken);
 
       // Fetch user profile
       await fetchUserProfile();
 
-      // Store userId after fetching profile
+      // Store userId after fetching profile and update cache
       if (user) {
-        await AsyncStorage.setItem("userId", user.id.toString());
+        const userId = user.id.toString();
+        await AsyncStorage.setItem("userId", userId);
+        updateTokenCache(accessToken, refreshToken, userId);
       }
 
       // Navigate to main app
@@ -226,16 +230,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const { accessToken, refreshToken } = data;
 
-      // Store tokens
+      // Store tokens in both AsyncStorage and cache
       await AsyncStorage.setItem("accessToken", accessToken);
       await AsyncStorage.setItem("refreshToken", refreshToken);
 
       // Fetch user profile
       await fetchUserProfile();
 
-      // Store userId after fetching profile
+      // Store userId after fetching profile and update cache
       if (user) {
-        await AsyncStorage.setItem("userId", user.id.toString());
+        const userId = user.id.toString();
+        await AsyncStorage.setItem("userId", userId);
+        updateTokenCache(accessToken, refreshToken, userId);
       }
 
       // Navigate to main app
@@ -357,7 +363,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setBanReason(null);
   };
 
-  const value: AuthContextType = {
+  // Memoize context value to prevent unnecessary re-renders
+  const value = useMemo<AuthContextType>(() => ({
     user,
     loading,
     isAuthenticated: !!user,
@@ -376,7 +383,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     refreshUser,
     requestAgentRole,
     clearBanStatus,
-  };
+  }), [user, loading, isBanned, banReason]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

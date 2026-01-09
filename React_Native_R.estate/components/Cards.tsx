@@ -3,9 +3,13 @@ import images from "@/constants/images";
 import { useComparison } from "@/contexts/ComparisonContext";
 import api from "@/lib/axios-config";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useState } from "react";
+import { Image as ExpoImage } from "expo-image";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
+
+// Blurhash placeholder for faster perceived loading
+const BLURHASH = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
 
 interface Property {
   id: number;
@@ -42,44 +46,39 @@ interface TodaysChoiceCardProps {
 // ============================================
 // TODAY'S CHOICE CARD - Premium Selection
 // ============================================
-export const TodaysChoiceCard = ({
+export const TodaysChoiceCard = memo(function TodaysChoiceCard({
   property,
   onPress,
-}: TodaysChoiceCardProps) => {
+}: TodaysChoiceCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedLike, setHasCheckedLike] = useState(false);
   const { t } = useTranslation();
 
   const { isInComparison, addToComparison, removeFromComparison } =
     useComparison();
   const inComparison = isInComparison(property.id);
 
-  useFocusEffect(
-    useCallback(() => {
-      checkIfLiked();
-    }, [property.id])
-  );
-
-  const checkIfLiked = async () => {
-    if (!property) return;
-
-    try {
-      const response = await api.get(
-        `/api/likedproperties/check/${property.id}`
-      );
-      setIsLiked(response.data.isLiked);
-    } catch (error: any) {
-      if (error.message?.includes("No refresh token")) {
-        console.log("Like check skipped - user not authenticated");
-        return;
-      }
-      console.error("Error checking like status:", error);
+  // Only check like status once on mount, not on every focus
+  useEffect(() => {
+    if (!hasCheckedLike && property) {
+      let isMounted = true;
+      api.get(`/api/likedproperties/check/${property.id}`)
+        .then(response => {
+          if (isMounted) {
+            setIsLiked(response.data.isLiked);
+            setHasCheckedLike(true);
+          }
+        })
+        .catch(() => {
+          // Silently fail - not critical
+        });
+      return () => { isMounted = false; };
     }
-  };
+  }, [property?.id, hasCheckedLike]);
 
-  const toggleLike = async (e: any) => {
+  const toggleLike = useCallback(async (e: any) => {
     e.stopPropagation();
-
     if (isLoading) return;
 
     setIsLoading(true);
@@ -94,8 +93,6 @@ export const TodaysChoiceCard = ({
       }
     } catch (error: any) {
       setIsLiked(previousState);
-      console.error("Error toggling like:", error);
-
       if (error.response?.status !== 404) {
         Alert.alert(
           t("common.error"),
@@ -107,25 +104,25 @@ export const TodaysChoiceCard = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [property.id, isLiked, isLoading, t]);
 
-  const handleComparisonToggle = (e: any) => {
+  const handleComparisonToggle = useCallback((e: any) => {
     e.stopPropagation();
     if (inComparison) {
       removeFromComparison(property.id);
     } else {
       addToComparison(property.id);
     }
-  };
+  }, [property.id, inComparison, addToComparison, removeFromComparison]);
 
-  const calculateProperty = (type: string) => {
+  const calculateProperty = useCallback((type: string) => {
     if (type === "House") return `🏠 ${t("propertyTypes.house")}`;
     if (type === "Apartment") return `🏢 ${t("propertyTypes.apartment")}`;
     if (type === "Office") return `☕ ${t("propertyTypes.office")}`;
     if (type === "Villa") return `🏡 ${t("propertyTypes.villa")}`;
     if (type === "Studio") return `🎬 ${t("propertyTypes.studio")}`;
     return type;
-  };
+  }, [t]);
 
   return (
     <TouchableOpacity
@@ -133,10 +130,14 @@ export const TodaysChoiceCard = ({
       className="flex flex-col items-start w-72 h-96 relative mr-4"
       activeOpacity={0.8}
     >
-      {/* Main Image */}
-      <Image
-        source={{ uri: property.images[0] || images.japan }}
-        className="size-full rounded-3xl"
+      {/* Main Image - Using expo-image for better caching */}
+      <ExpoImage
+        source={{ uri: property.images[0] }}
+        style={{ width: "100%", height: "100%", borderRadius: 24 }}
+        contentFit="cover"
+        placeholder={BLURHASH}
+        transition={200}
+        cachePolicy="memory-disk"
       />
 
       {/* Gradient Overlay */}
@@ -253,40 +254,41 @@ export const TodaysChoiceCard = ({
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 // ============================================
 // FEATURED CARD - Horizontal Scroll
 // ============================================
-export const FeaturedCard = ({ property, onPress }: FeaturedCardProps) => {
+export const FeaturedCard = memo(function FeaturedCard({ property, onPress }: FeaturedCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedLike, setHasCheckedLike] = useState(false);
   const { t } = useTranslation();
 
   const { isInComparison, addToComparison, removeFromComparison } =
     useComparison();
   const inComparison = isInComparison(property.id);
 
-  useFocusEffect(
-    useCallback(() => {
-      checkIfLiked();
-    }, [property.id])
-  );
-
-  const checkIfLiked = async () => {
-    try {
-      const response = await api.get(
-        `/api/likedproperties/check/${property.id}`
-      );
-      setIsLiked(response.data.isLiked);
-    } catch (error) {
-      console.error("Error checking like status:", error);
+  // Only check like status once on mount
+  useEffect(() => {
+    if (!hasCheckedLike && property) {
+      let isMounted = true;
+      api.get(`/api/likedproperties/check/${property.id}`)
+        .then(response => {
+          if (isMounted) {
+            setIsLiked(response.data.isLiked);
+            setHasCheckedLike(true);
+          }
+        })
+        .catch(() => {
+          // Silently fail - not critical
+        });
+      return () => { isMounted = false; };
     }
-  };
+  }, [property?.id, hasCheckedLike]);
 
-  const toggleLike = async (e: any) => {
+  const toggleLike = useCallback(async (e: any) => {
     e.stopPropagation();
-
     if (isLoading) return;
 
     setIsLoading(true);
@@ -301,8 +303,6 @@ export const FeaturedCard = ({ property, onPress }: FeaturedCardProps) => {
       }
     } catch (error: any) {
       setIsLiked(previousState);
-      console.error("Error toggling like:", error);
-
       if (error.response?.status !== 404) {
         Alert.alert(
           t("common.error"),
@@ -314,25 +314,25 @@ export const FeaturedCard = ({ property, onPress }: FeaturedCardProps) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [property.id, isLiked, isLoading, t]);
 
-  const handleComparisonToggle = (e: any) => {
+  const handleComparisonToggle = useCallback((e: any) => {
     e.stopPropagation();
     if (inComparison) {
       removeFromComparison(property.id);
     } else {
       addToComparison(property.id);
     }
-  };
+  }, [property.id, inComparison, addToComparison, removeFromComparison]);
 
-  const calculateProperty = (type: string) => {
+  const calculateProperty = useCallback((type: string) => {
     if (type === "House") return `🏠 ${t("propertyTypes.house")}`;
     if (type === "Apartment") return `🏢 ${t("propertyTypes.apartment")}`;
     if (type === "Office") return `☕ ${t("propertyTypes.office")}`;
     if (type === "Villa") return `🏡 ${t("propertyTypes.villa")}`;
     if (type === "Studio") return `🎬 ${t("propertyTypes.studio")}`;
     return type;
-  };
+  }, [t]);
 
   return (
     <TouchableOpacity
@@ -340,9 +340,14 @@ export const FeaturedCard = ({ property, onPress }: FeaturedCardProps) => {
       className="flex flex-col items-start w-60 h-80 relative"
       activeOpacity={0.8}
     >
-      <Image
-        source={{ uri: property.images[0] || images.japan }}
-        className="size-full rounded-2xl"
+      {/* Main Image - Using expo-image for better caching */}
+      <ExpoImage
+        source={{ uri: property.images[0] }}
+        style={{ width: "100%", height: "100%", borderRadius: 16 }}
+        contentFit="cover"
+        placeholder={BLURHASH}
+        transition={200}
+        cachePolicy="memory-disk"
       />
       <Image
         source={images.cardGradient}
@@ -407,43 +412,40 @@ export const FeaturedCard = ({ property, onPress }: FeaturedCardProps) => {
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 // ============================================
 // CARDS - Grid View (Recommendations)
 // ============================================
-export const Cards = ({ property, onPress }: CardProps) => {
+export const Cards = memo(function Cards({ property, onPress }: CardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedLike, setHasCheckedLike] = useState(false);
   const { t } = useTranslation();
 
   const { isInComparison, addToComparison, removeFromComparison } =
     useComparison();
 
-  useFocusEffect(
-    useCallback(() => {
-      if (property) {
-        checkIfLiked();
-      }
-    }, [property?.id])
-  );
-
-  const checkIfLiked = async () => {
-    if (!property) return;
-
-    try {
-      const response = await api.get(
-        `/api/likedproperties/check/${property.id}`
-      );
-      setIsLiked(response.data.isLiked);
-    } catch (error) {
-      console.error("Error checking like status:", error);
+  // Only check like status once on mount
+  useEffect(() => {
+    if (!hasCheckedLike && property) {
+      let isMounted = true;
+      api.get(`/api/likedproperties/check/${property.id}`)
+        .then(response => {
+          if (isMounted) {
+            setIsLiked(response.data.isLiked);
+            setHasCheckedLike(true);
+          }
+        })
+        .catch(() => {
+          // Silently fail - not critical
+        });
+      return () => { isMounted = false; };
     }
-  };
+  }, [property?.id, hasCheckedLike]);
 
-  const toggleLike = async (e: any) => {
+  const toggleLike = useCallback(async (e: any) => {
     e.stopPropagation();
-
     if (!property || isLoading) return;
 
     setIsLoading(true);
@@ -458,8 +460,6 @@ export const Cards = ({ property, onPress }: CardProps) => {
       }
     } catch (error: any) {
       setIsLiked(previousState);
-      console.error("Error toggling like:", error);
-
       if (error.response?.status !== 404) {
         Alert.alert(
           t("common.error"),
@@ -471,9 +471,9 @@ export const Cards = ({ property, onPress }: CardProps) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [property?.id, isLiked, isLoading, t]);
 
-  const handleComparisonToggle = (e: any) => {
+  const handleComparisonToggle = useCallback((e: any) => {
     e.stopPropagation();
     if (!property) return;
 
@@ -483,14 +483,14 @@ export const Cards = ({ property, onPress }: CardProps) => {
     } else {
       addToComparison(property.id);
     }
-  };
+  }, [property?.id, isInComparison, addToComparison, removeFromComparison]);
 
-  const calculateRating = (price: number) => {
+  const calculateRating = useCallback((price: number) => {
     if (price > 500000) return "5.0";
     if (price > 300000) return "4.8";
     if (price > 150000) return "4.5";
     return "4.2";
-  };
+  }, []);
 
   if (!property) {
     return null;
@@ -545,10 +545,14 @@ export const Cards = ({ property, onPress }: CardProps) => {
           </TouchableOpacity>
         </View>
 
-        {/* Property Image */}
-        <Image
-          source={{ uri: property.images[0] || images.japan }}
-          className="w-full h-40 rounded-lg"
+        {/* Property Image - Using expo-image for better caching */}
+        <ExpoImage
+          source={{ uri: property.images[0] }}
+          style={{ width: "100%", height: 160, borderRadius: 8 }}
+          contentFit="cover"
+          placeholder={BLURHASH}
+          transition={200}
+          cachePolicy="memory-disk"
         />
 
         {/* Property Details */}
@@ -571,4 +575,4 @@ export const Cards = ({ property, onPress }: CardProps) => {
       </TouchableOpacity>
     </View>
   );
-};
+});

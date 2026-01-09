@@ -1,8 +1,9 @@
 import icons from "@/constants/icons";
 import { useComparison } from "@/contexts/ComparisonContext";
 import api from "@/lib/axios-config";
+import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
 
@@ -18,11 +19,15 @@ interface PropertyCardProps {
   propertyType: string;
   listingType: string;
   monthlyRent?: number;
+  initialLiked?: boolean;
   onPress?: () => void;
   onLikeChange?: () => void;
 }
 
-export default function PropertyCard({
+// Blurhash placeholder for faster perceived loading
+const BLURHASH = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
+
+const PropertyCard = memo(function PropertyCard({
   id,
   title,
   price,
@@ -32,117 +37,110 @@ export default function PropertyCard({
   area,
   images,
   propertyType,
-  // Destructure the new prop
   listingType,
   monthlyRent,
+  initialLiked,
   onLikeChange,
 }: PropertyCardProps) {
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(initialLiked ?? false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedLike, setHasCheckedLike] = useState(initialLiked !== undefined);
   const { t } = useTranslation();
 
-  // Comparison context
-  const { isInComparison, addToComparison, removeFromComparison } =
-    useComparison();
+  const { isInComparison, addToComparison, removeFromComparison } = useComparison();
   const inComparison = isInComparison(id);
-
-  // Determine if it is a rental property
   const isRental = listingType === "Rent";
 
+  // Only check like status if not provided initially
   useEffect(() => {
-    checkIfLiked();
-  }, [id]);
-
-  const checkIfLiked = async () => {
-    try {
-      const response = await api.get(`/api/likedproperties/check/${id}`);
-      setIsLiked(response.data.isLiked);
-    } catch (error) {
-      console.error("Error checking like status:", error);
+    if (!hasCheckedLike) {
+      let isMounted = true;
+      api.get(`/api/likedproperties/check/${id}`)
+        .then(response => {
+          if (isMounted) {
+            setIsLiked(response.data.isLiked);
+            setHasCheckedLike(true);
+          }
+        })
+        .catch(() => {
+          // Silently fail - not critical
+        });
+      return () => { isMounted = false; };
     }
-  };
+  }, [id, hasCheckedLike]);
 
-  const toggleLike = async (e?: any) => {
+  const toggleLike = useCallback(async (e?: any) => {
     if (e) e.stopPropagation();
-
     if (isLoading) return;
 
     setIsLoading(true);
     const previousState = isLiked;
-
-    // Optimistic update
     setIsLiked(!isLiked);
 
     try {
       if (isLiked) {
-        // Unlike
         await api.delete(`/api/likedproperties/${id}`);
       } else {
-        // Like
         await api.post(`/api/likedproperties/${id}`);
       }
-
-      // Notify parent component that like status changed
-      if (onLikeChange) {
-        onLikeChange();
-      }
+      onLikeChange?.();
     } catch (error: any) {
-      // Revert on error
       setIsLiked(previousState);
-      console.error("Error toggling like:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || "Failed to update like status"
-      );
+      Alert.alert("Error", error.response?.data?.message || "Failed to update like status");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, isLiked, isLoading, onLikeChange]);
 
-  const handleComparisonToggle = (e?: any) => {
+  const handleComparisonToggle = useCallback((e?: any) => {
     if (e) e.stopPropagation();
-
     if (inComparison) {
       removeFromComparison(id);
     } else {
       addToComparison(id);
     }
-  };
+  }, [id, inComparison, addToComparison, removeFromComparison]);
 
-  const formatPrice = (salePrice: number, rentPrice: number | undefined) => {
+  const handlePress = useCallback(() => {
+    router.push(`/(root)/properties/${id}`);
+  }, [id]);
+
+  const formattedPrice = React.useMemo(() => {
     let displayPrice: number;
     let suffix: string = "";
 
-    if (isRental && rentPrice && rentPrice > 0) {
-      displayPrice = rentPrice;
+    if (isRental && monthlyRent && monthlyRent > 0) {
+      displayPrice = monthlyRent;
       suffix = "/mo";
     } else {
-      // Use salePrice for Sale properties or as a fallback
-      displayPrice = salePrice;
+      displayPrice = price;
     }
 
-    return (
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-      }).format(displayPrice) + suffix
-    );
-  };
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+    }).format(displayPrice) + suffix;
+  }, [price, monthlyRent, isRental]);
+
+  const propertyTypeLabel = t(`propertyTypes.${propertyType.toLowerCase()}`);
 
   return (
     <TouchableOpacity
-      onPress={() => router.push(`/(root)/properties/${id}`)}
+      onPress={handlePress}
       className="bg-white rounded-2xl shadow-md mb-4 overflow-hidden"
       activeOpacity={0.8}
     >
-      {/* Property Image */}
+      {/* Property Image - Using expo-image for better caching */}
       <View className="relative">
         {images.length > 0 ? (
-          <Image
+          <ExpoImage
             source={{ uri: images[0] }}
-            className="w-full h-48"
-            resizeMode="cover"
+            style={{ width: "100%", height: 192 }}
+            contentFit="cover"
+            placeholder={BLURHASH}
+            transition={200}
+            cachePolicy="memory-disk"
           />
         ) : (
           <View className="w-full h-48 bg-gray-200 items-center justify-center">
@@ -150,32 +148,22 @@ export default function PropertyCard({
           </View>
         )}
 
-        {/* --- BADGE CONTAINER: Property Type and Listing Type --- */}
+        {/* Badge Container */}
         <View className="absolute top-3 left-3 flex-row gap-2 z-10">
-          {/* 1. Property Type Badge */}
           <View className="bg-primary-300 px-3 py-1 rounded-full">
             <Text className="text-white text-xs font-rubik-medium">
-              {t(`propertyTypes.${propertyType.toLowerCase()}`)}
+              {propertyTypeLabel}
             </Text>
           </View>
-
-          {/* 2. Listing Type Badge (NEWLY ADDED) */}
-          <View
-            className={`px-3 py-1 rounded-full ${isRental ? "bg-purple-100" : "bg-blue-100"}`}
-          >
-            <Text
-              className={`text-xs font-rubik-medium ${isRental ? "text-purple-700" : "text-blue-700"}`}
-            >
-              {/* Conditional Emoji and Text */}
+          <View className={`px-3 py-1 rounded-full ${isRental ? "bg-purple-100" : "bg-blue-100"}`}>
+            <Text className={`text-xs font-rubik-medium ${isRental ? "text-purple-700" : "text-blue-700"}`}>
               {isRental ? "🔑 Rent" : "🏷️ Sale"}
             </Text>
           </View>
         </View>
-        {/* -------------------------------------------------------- */}
 
-        {/* Top Right Action Buttons */}
+        {/* Action Buttons */}
         <View className="absolute top-2 right-3 flex-col gap-2 z-50">
-          {/* Like Button */}
           <TouchableOpacity
             onPress={toggleLike}
             disabled={isLoading}
@@ -189,12 +177,9 @@ export default function PropertyCard({
             />
           </TouchableOpacity>
 
-          {/* Comparison Button */}
           <TouchableOpacity
             onPress={handleComparisonToggle}
-            className={`p-2 rounded-full ${
-              inComparison ? "bg-primary-300" : "bg-white/60"
-            }`}
+            className={`p-2 rounded-full ${inComparison ? "bg-primary-300" : "bg-white/60"}`}
             activeOpacity={0.7}
           >
             <Image
@@ -215,10 +200,7 @@ export default function PropertyCard({
 
       {/* Property Details */}
       <View className="p-4">
-        <Text
-          className="text-xl font-rubik-bold text-black-300 mb-1"
-          numberOfLines={1}
-        >
+        <Text className="text-xl font-rubik-bold text-black-300 mb-1" numberOfLines={1}>
           {title}
         </Text>
 
@@ -226,29 +208,25 @@ export default function PropertyCard({
           📍 {address}
         </Text>
 
-        {/* Price */}
         <Text className="text-2xl font-rubik-bold text-primary-300 mb-3">
-          {formatPrice(price, monthlyRent)}
+          {formattedPrice}
         </Text>
+
         {/* Features */}
         <View className="flex-row items-center gap-4">
           {bedrooms > 0 && (
-            <View className="flex-row items-center">
-              <Text className="text-gray-600 text-sm">🛏️ {bedrooms}</Text>
-            </View>
+            <Text className="text-gray-600 text-sm">🛏️ {bedrooms}</Text>
           )}
           {bathrooms > 0 && (
-            <View className="flex-row items-center">
-              <Text className="text-gray-600 text-sm">🚿 {bathrooms}</Text>
-            </View>
+            <Text className="text-gray-600 text-sm">🚿 {bathrooms}</Text>
           )}
           {area > 0 && (
-            <View className="flex-row items-center">
-              <Text className="text-gray-600 text-sm">📐 {area}m²</Text>
-            </View>
+            <Text className="text-gray-600 text-sm">📐 {area}m²</Text>
           )}
         </View>
       </View>
     </TouchableOpacity>
   );
-}
+});
+
+export default PropertyCard;

@@ -1,11 +1,14 @@
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useState, useCallback } from "react";
-import { useFocusEffect } from "@react-navigation/native";
+import React, { memo, useState, useCallback, useEffect } from "react";
+import { Image as ExpoImage } from "expo-image";
 import api from "@/lib/axios-config";
 import icons from "@/constants/icons";
 import images from "@/constants/images";
 import { useComparison } from "@/contexts/ComparisonContext";
+
+// Blurhash placeholder for faster perceived loading
+const BLURHASH = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
 
 interface GreenHomeProperty {
   id: number;
@@ -26,34 +29,34 @@ interface GreenHomeCardProps {
   onPress?: () => void;
 }
 
-export const GreenHomeCard = ({ property, onPress }: GreenHomeCardProps) => {
+export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: GreenHomeCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedLike, setHasCheckedLike] = useState(false);
   const { t } = useTranslation();
 
   const { isInComparison, addToComparison, removeFromComparison } = useComparison();
   const inComparison = isInComparison(property.id);
 
-  useFocusEffect(
-    useCallback(() => {
-      checkIfLiked();
-    }, [property.id])
-  );
-
-  const checkIfLiked = async () => {
-    try {
-      const response = await api.get(`/api/likedproperties/check/${property.id}`);
-      setIsLiked(response.data.isLiked);
-    } catch (error: any) {
-      if (error.message?.includes("No refresh token")) {
-        console.log("Like check skipped - user not authenticated");
-        return;
-      }
-      console.error("Error checking like status:", error);
+  // Only check like status once on mount
+  useEffect(() => {
+    if (!hasCheckedLike && property) {
+      let isMounted = true;
+      api.get(`/api/likedproperties/check/${property.id}`)
+        .then(response => {
+          if (isMounted) {
+            setIsLiked(response.data.isLiked);
+            setHasCheckedLike(true);
+          }
+        })
+        .catch(() => {
+          // Silently fail - not critical
+        });
+      return () => { isMounted = false; };
     }
-  };
+  }, [property?.id, hasCheckedLike]);
 
-  const toggleLike = async (e: any) => {
+  const toggleLike = useCallback(async (e: any) => {
     e.stopPropagation();
     if (isLoading) return;
 
@@ -69,34 +72,33 @@ export const GreenHomeCard = ({ property, onPress }: GreenHomeCardProps) => {
       }
     } catch (error) {
       setIsLiked(previousState);
-      console.error("Error toggling like:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [property.id, isLiked, isLoading]);
 
-  const handleComparisonToggle = (e: any) => {
+  const handleComparisonToggle = useCallback((e: any) => {
     e.stopPropagation();
     if (inComparison) {
       removeFromComparison(property.id);
     } else {
       addToComparison(property.id);
     }
-  };
+  }, [property.id, inComparison, addToComparison, removeFromComparison]);
 
-  const getEcoScoreColor = (score: number) => {
+  const getEcoScoreColor = useCallback((score: number) => {
     if (score >= 80) return "#10B981"; // Green
     if (score >= 60) return "#84CC16"; // Light green
     if (score >= 40) return "#EAB308"; // Yellow
     return "#F59E0B"; // Orange
-  };
+  }, []);
 
-  const getEcoScoreLabel = (score: number) => {
+  const getEcoScoreLabel = useCallback((score: number) => {
     if (score >= 80) return t("greenHomes.excellent");
     if (score >= 60) return t("greenHomes.good");
     if (score >= 40) return t("greenHomes.moderate");
     return t("greenHomes.basic");
-  };
+  }, [t]);
 
   return (
     <TouchableOpacity
@@ -104,10 +106,14 @@ export const GreenHomeCard = ({ property, onPress }: GreenHomeCardProps) => {
       className="flex flex-col items-start w-72 h-96 relative mr-4"
       activeOpacity={0.8}
     >
-      {/* Main Image */}
-      <Image
-        source={{ uri: property.images[0] || images.japan }}
-        className="size-full rounded-3xl"
+      {/* Main Image - Using expo-image for better caching */}
+      <ExpoImage
+        source={{ uri: property.images[0] }}
+        style={{ width: "100%", height: "100%", borderRadius: 24 }}
+        contentFit="cover"
+        placeholder={BLURHASH}
+        transition={200}
+        cachePolicy="memory-disk"
       />
 
       {/* Gradient Overlay */}
@@ -224,4 +230,4 @@ export const GreenHomeCard = ({ property, onPress }: GreenHomeCardProps) => {
       </View>
     </TouchableOpacity>
   );
-};
+});

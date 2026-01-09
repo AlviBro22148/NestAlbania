@@ -8,7 +8,7 @@ import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import api from "@/lib/axios-config";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -193,9 +193,33 @@ export default function Index() {
     }
   }, [isAuthenticated]);
 
-  const handlePropertyPress = (propertyId: number) => {
+  const handlePropertyPress = useCallback((propertyId: number) => {
     router.push(`/(root)/properties/${propertyId}`);
-  };
+  }, []);
+
+  // Memoized render functions for FlatLists
+  const renderTodaysChoice = useCallback(({ item }: { item: Property }) => (
+    <TodaysChoiceCard
+      property={item}
+      onPress={() => handlePropertyPress(item.id)}
+    />
+  ), [handlePropertyPress]);
+
+  const renderFeatured = useCallback(({ item }: { item: Property }) => (
+    <FeaturedCard
+      property={item}
+      onPress={() => handlePropertyPress(item.id)}
+    />
+  ), [handlePropertyPress]);
+
+  const renderGreenHome = useCallback(({ item }: { item: any }) => (
+    <GreenHomeCard
+      property={item}
+      onPress={() => handlePropertyPress(item.id)}
+    />
+  ), [handlePropertyPress]);
+
+  const keyExtractor = useCallback((item: Property) => item.id.toString(), []);
 
   return (
     <SafeAreaView className="bg-white h-full">
@@ -264,17 +288,16 @@ export default function Index() {
             ) : todaysChoice.length > 0 ? (
               <FlatList
                 data={todaysChoice}
-                renderItem={({ item }) => (
-                  <TodaysChoiceCard
-                    property={item}
-                    onPress={() => handlePropertyPress(item.id)}
-                  />
-                )}
-                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderTodaysChoice}
+                keyExtractor={keyExtractor}
                 horizontal
                 bounces={false}
                 showsHorizontalScrollIndicator={false}
                 contentContainerClassName="py-2"
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
+                removeClippedSubviews={true}
               />
             ) : (
               <View className="py-8 items-center">
@@ -323,19 +346,18 @@ export default function Index() {
                 <View>
                   <FlatList
                     data={yourChoice}
-                    renderItem={({ item }) => (
-                      <FeaturedCard
-                        property={item}
-                        onPress={() => handlePropertyPress(item.id)}
-                      />
-                    )}
-                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={renderFeatured}
+                    keyExtractor={keyExtractor}
                     horizontal
                     bounces={false}
                     showsHorizontalScrollIndicator={false}
                     contentContainerClassName="flex gap-4 py-1"
                     onEndReached={loadMoreYourChoice}
                     onEndReachedThreshold={0.5}
+                    initialNumToRender={4}
+                    maxToRenderPerBatch={4}
+                    windowSize={5}
+                    removeClippedSubviews={true}
                     ListFooterComponent={
                       loadingMoreYourChoice ? (
                         <View className="justify-center items-center px-4 w-16">
@@ -400,17 +422,16 @@ export default function Index() {
             ) : greenHomes.length > 0 ? (
               <FlatList
                 data={greenHomes}
-                renderItem={({ item }) => (
-                  <GreenHomeCard
-                    property={item}
-                    onPress={() => handlePropertyPress(item.id)}
-                  />
-                )}
-                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderGreenHome}
+                keyExtractor={keyExtractor}
                 horizontal
                 bounces={false}
                 showsHorizontalScrollIndicator={false}
                 contentContainerClassName="py-2"
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
+                removeClippedSubviews={true}
               />
             ) : (
               <View className="py-8 items-center">
@@ -443,17 +464,16 @@ export default function Index() {
             ) : featuredProperties.length > 0 ? (
               <FlatList
                 data={featuredProperties}
-                renderItem={({ item }) => (
-                  <FeaturedCard
-                    property={item}
-                    onPress={() => handlePropertyPress(item.id)}
-                  />
-                )}
-                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderFeatured}
+                keyExtractor={keyExtractor}
                 horizontal
                 bounces={false}
                 showsHorizontalScrollIndicator={false}
                 contentContainerClassName="flex gap-5"
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={5}
+                removeClippedSubviews={true}
               />
             ) : (
               <View className="py-8 items-center">
