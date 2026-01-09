@@ -1,5 +1,6 @@
 import { router, usePathname } from "expo-router";
 import React, { createContext, useCallback, useContext, useEffect, useRef } from "react";
+import { BackHandler } from "react-native";
 
 interface NavigationContextType {
   goBack: (fallback?: string) => void;
@@ -10,6 +11,16 @@ const NavigationContext = createContext<NavigationContextType | null>(null);
 
 // Routes that should be ignored in history (modals, etc.)
 const IGNORED_ROUTES = ["/auth/sign-in", "/auth/sign-up", "/auth/forgot-password"];
+
+// Main tab routes - don't go back from these, exit app instead
+const MAIN_TAB_ROUTES = [
+  "/(root)/(tabs)",
+  "/(root)/(tabs)/index",
+  "/(root)/(tabs)/explore",
+  "/(root)/(tabs)/market",
+  "/(root)/(tabs)/services",
+  "/(root)/(tabs)/profile",
+];
 
 // Default fallback route
 const DEFAULT_FALLBACK = "/(root)/(tabs)/";
@@ -57,11 +68,48 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
       // Navigate to the previous route
       router.replace(previousRoute as any);
+      return true;
     } else {
-      // No history, use fallback
-      router.replace((fallback || DEFAULT_FALLBACK) as any);
+      // No history, use fallback if provided
+      if (fallback) {
+        router.replace(fallback as any);
+        return true;
+      }
+      return false;
     }
   }, []);
+
+  // Handle Android back button/gesture
+  useEffect(() => {
+    const handleBackPress = () => {
+      // If on a main tab route with no history, let the system handle it (exit app)
+      const isMainTab = MAIN_TAB_ROUTES.some(route =>
+        currentPathRef.current === route ||
+        currentPathRef.current === "/" ||
+        currentPathRef.current === ""
+      );
+
+      if (isMainTab && historyRef.current.length === 0) {
+        // Let the default back behavior happen (exit app)
+        return false;
+      }
+
+      // Use our navigation history to go back
+      const didGoBack = goBack();
+
+      if (!didGoBack) {
+        // No history and not on main tab, go to home
+        router.replace(DEFAULT_FALLBACK as any);
+      }
+
+      // Return true to prevent default back behavior
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", handleBackPress);
+
+    return () => subscription.remove();
+  }, [goBack]);
 
   return (
     <NavigationContext.Provider value={{ goBack, getPreviousRoute }}>

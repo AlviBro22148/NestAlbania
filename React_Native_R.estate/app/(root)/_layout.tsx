@@ -7,9 +7,7 @@ export default function RootGroupLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          gestureEnabled: true,
-          gestureDirection: "horizontal",
-          animation: "slide_from_right",
+          animation: "none",
         }}
       >
         <Stack.Screen name="(tabs)" />
