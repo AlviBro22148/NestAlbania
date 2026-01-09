@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import icons from "@/constants/icons";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,6 +49,7 @@ const TestimonialsScreen = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
 
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [stats, setStats] = useState<TestimonialStats | null>(null);
@@ -365,7 +367,7 @@ const TestimonialsScreen = () => {
       {/* Header */}
       <View className="px-6 py-4 bg-white border-b border-gray-200">
         <View className="flex-row items-center justify-between">
-          <TouchableOpacity onPress={() => router.back()} className="mr-4">
+          <TouchableOpacity onPress={handleBack} className="mr-4">
             <Image source={icons.backArrow} className="w-6 h-6" />
           </TouchableOpacity>
           <View className="flex-1">

@@ -61,6 +61,7 @@ function AppContent() {
         onLogout={logout}
         isMobileOpen={isMobileOpen}
         setIsMobileOpen={setIsMobileOpen}
+        userRole={auth?.role || auth?.Role}
       />
 
       {/* Main Content Container */}
@@ -81,7 +82,7 @@ function AppContent() {
             />
           ) : (
             <>
-              {activePage === 'dashboard' && <DashboardPage token={auth.accessToken} />}
+              {activePage === 'dashboard' && <DashboardPage token={auth.accessToken} auth={auth} />}
               {activePage === 'properties' && (
                 <PropertiesPage
                   key={propertiesRefreshKey}
@@ -90,7 +91,7 @@ function AppContent() {
                   onCreateProperty={() => setShowPropertyCreate(true)}
                 />
               )}
-              {activePage === 'users' && <UsersPage token={auth.accessToken} />}
+              {activePage === 'users' && <UsersPage token={auth.accessToken} userRole={auth?.role || auth?.Role} />}
               {activePage === 'feedback' && <AdminFeedbackManager token={auth.accessToken} />}
               {activePage === 'community' && <AdminCommunityManager token={auth.accessToken} />}
               {activePage === 'agentrequest' && <AgentRequestsPage token={auth.accessToken} />}

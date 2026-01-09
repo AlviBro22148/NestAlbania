@@ -1,4 +1,5 @@
 import icons from "@/constants/icons";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -31,6 +32,7 @@ export default function BlogDetailScreen() {
   const { id } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [article, setArticle] = useState<BlogArticle | null>(null);
+  const handleBack = useBackNavigation("/(root)/(tabs)/blog");
 
   useEffect(() => {
     loadArticle();
@@ -89,7 +91,7 @@ export default function BlogDetailScreen() {
       <SafeAreaView className="h-full bg-white flex items-center justify-center">
         <Text className="text-black-200 font-rubik">Article not found</Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           className="mt-4 bg-primary-300 px-6 py-3 rounded-lg"
         >
           <Text className="text-white font-rubik-medium">Go Back</Text>
@@ -103,7 +105,7 @@ export default function BlogDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header with Back Button */}
         <View className="px-5 py-4 flex flex-row items-center justify-between">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Image source={icons.backArrow} className="w-6 h-6" />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleShare}>

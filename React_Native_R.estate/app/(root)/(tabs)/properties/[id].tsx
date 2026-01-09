@@ -2,6 +2,7 @@ import ContactOwnerModal from "@/components/ContactOwnerModal";
 import { useAlert } from "@/contexts/AlertContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { translateText } from "@/lib/translate";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,6 +52,7 @@ interface Report {
 
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams();
+  const handleBack = useBackNavigation("/(root)/(tabs)/explore");
   const [property, setProperty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [translating, setTranslating] = useState(false);
@@ -106,7 +108,7 @@ export default function PropertyDetailScreen() {
   const fetchReports = async () => {
     try {
       setLoadingReports(true);
-      const response = await api.get('/api/reports');
+      const response = await api.get("/api/reports");
       const reportsData = response.data || [];
 
       const transformedReports: Report[] = reportsData.map((r: any) => ({
@@ -121,7 +123,8 @@ export default function PropertyDetailScreen() {
           title: p.property?.title || p.title || "Unknown Property",
           address: p.property?.address || p.address || "",
           price: p.property?.price || p.price || 0,
-          image: p.property?.images?.[0]?.url || p.property?.image || p.image || "",
+          image:
+            p.property?.images?.[0]?.url || p.property?.image || p.image || "",
           bedrooms: p.property?.bedrooms || p.bedrooms || 0,
           bathrooms: p.property?.bathrooms || p.bathrooms || 0,
           area: p.property?.area || p.area || 0,
@@ -138,7 +141,10 @@ export default function PropertyDetailScreen() {
   };
 
   // Check if property is in a specific report
-  const isPropertyInReport = (reportId: string, propertyId: number): boolean => {
+  const isPropertyInReport = (
+    reportId: string,
+    propertyId: number
+  ): boolean => {
     const report = reports.find((r) => r.id === reportId);
     if (!report) return false;
     return report.properties.some((p) => p.propertyId === propertyId);
@@ -152,8 +158,11 @@ export default function PropertyDetailScreen() {
   };
 
   // Create a new report
-  const createReport = async (name: string, description?: string): Promise<Report> => {
-    const response = await api.post('/api/reports', { name, description });
+  const createReport = async (
+    name: string,
+    description?: string
+  ): Promise<Report> => {
+    const response = await api.post("/api/reports", { name, description });
     const newReport: Report = {
       id: response.data.id.toString(),
       name: response.data.name,
@@ -327,7 +336,9 @@ export default function PropertyDetailScreen() {
   const canStartChat = isUserRole && !isOwnProperty && property?.userId;
 
   // Check for existing conversation
-  const existingConversation = property ? hasExistingConversation(property.id) : undefined;
+  const existingConversation = property
+    ? hasExistingConversation(property.id)
+    : undefined;
 
   // Handle starting a chat with the agent
   const handleStartChat = async () => {
@@ -418,7 +429,7 @@ export default function PropertyDetailScreen() {
           </ScrollView>
 
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             className="absolute top-4 left-4 bg-white/90 rounded-full w-10 h-10 items-center justify-center"
           >
             <Text className="text-xl mb-2">←</Text>
@@ -451,20 +462,24 @@ export default function PropertyDetailScreen() {
                 </Text>
               </View>
               {/* Status Badge */}
-              <View className={`px-3 py-1 rounded-full ${
-                property.status === "Available"
-                  ? "bg-green-100"
-                  : property.status === "Rented"
-                    ? "bg-purple-100"
-                    : "bg-red-100"
-              }`}>
-                <Text className={`text-sm font-rubik-medium ${
+              <View
+                className={`px-3 py-1 rounded-full ${
                   property.status === "Available"
-                    ? "text-green-700"
+                    ? "bg-green-100"
                     : property.status === "Rented"
-                      ? "text-purple-700"
-                      : "text-red-700"
-                }`}>
+                      ? "bg-purple-100"
+                      : "bg-red-100"
+                }`}
+              >
+                <Text
+                  className={`text-sm font-rubik-medium ${
+                    property.status === "Available"
+                      ? "text-green-700"
+                      : property.status === "Rented"
+                        ? "text-purple-700"
+                        : "text-red-700"
+                  }`}
+                >
                   {property.status === "Available"
                     ? t("properties.Available")
                     : property.status === "Rented"
@@ -600,10 +615,10 @@ export default function PropertyDetailScreen() {
                       property.ecoScore >= 80
                         ? "#10B981"
                         : property.ecoScore >= 60
-                        ? "#84CC16"
-                        : property.ecoScore >= 40
-                        ? "#EAB308"
-                        : "#F59E0B",
+                          ? "#84CC16"
+                          : property.ecoScore >= 40
+                            ? "#EAB308"
+                            : "#F59E0B",
                   }}
                 >
                   <Text className="text-3xl font-rubik-extrabold text-white">
@@ -770,7 +785,9 @@ export default function PropertyDetailScreen() {
             <Ionicons name="document-text-outline" size={20} color="#0061FF" />
             <Text className="text-primary-300 text-center font-rubik-bold text-lg ml-2">
               {reportsContainingProperty.length > 0
-                ? t("reports.inReports", { count: reportsContainingProperty.length })
+                ? t("reports.inReports", {
+                    count: reportsContainingProperty.length,
+                  })
                 : t("reports.addToReport")}
             </Text>
           </TouchableOpacity>
@@ -816,7 +833,9 @@ export default function PropertyDetailScreen() {
           <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-2xl font-rubik-bold text-gray-900">
-                {createReportMode ? t("reports.createReport") : t("reports.addToReport")}
+                {createReportMode
+                  ? t("reports.createReport")
+                  : t("reports.addToReport")}
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -887,7 +906,10 @@ export default function PropertyDetailScreen() {
               </View>
             ) : (
               /* Report Selection List */
-              <ScrollView className="max-h-80" showsVerticalScrollIndicator={false}>
+              <ScrollView
+                className="max-h-80"
+                showsVerticalScrollIndicator={false}
+              >
                 {/* Create New Report Option */}
                 <TouchableOpacity
                   onPress={() => setCreateReportMode(true)}
@@ -914,11 +936,16 @@ export default function PropertyDetailScreen() {
                 )}
 
                 {reports.map((report) => {
-                  const isInReport = isPropertyInReport(report.id, property?.id || 0);
+                  const isInReport = isPropertyInReport(
+                    report.id,
+                    property?.id || 0
+                  );
                   return (
                     <TouchableOpacity
                       key={report.id}
-                      onPress={() => !isInReport && handleAddToReport(report.id)}
+                      onPress={() =>
+                        !isInReport && handleAddToReport(report.id)
+                      }
                       disabled={isInReport || addingToReport}
                       className={`flex-row items-center p-4 rounded-xl mb-2 border ${
                         isInReport
@@ -932,7 +959,11 @@ export default function PropertyDetailScreen() {
                         }`}
                       >
                         <Ionicons
-                          name={isInReport ? "checkmark-circle" : "document-text-outline"}
+                          name={
+                            isInReport
+                              ? "checkmark-circle"
+                              : "document-text-outline"
+                          }
                           size={24}
                           color={isInReport ? "#10B981" : "#6B7280"}
                         />
@@ -951,7 +982,11 @@ export default function PropertyDetailScreen() {
                         </Text>
                       </View>
                       {!isInReport && (
-                        <Ionicons name="add-circle-outline" size={24} color="#0061FF" />
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={24}
+                          color="#0061FF"
+                        />
                       )}
                     </TouchableOpacity>
                   );
@@ -959,7 +994,11 @@ export default function PropertyDetailScreen() {
 
                 {reports.length === 0 && (
                   <View className="py-8 items-center">
-                    <Ionicons name="folder-open-outline" size={48} color="#9CA3AF" />
+                    <Ionicons
+                      name="folder-open-outline"
+                      size={48}
+                      color="#9CA3AF"
+                    />
                     <Text className="text-gray-500 font-rubik mt-2 text-center">
                       {t("reports.noReportsYet")}
                     </Text>
@@ -1001,7 +1040,10 @@ export default function PropertyDetailScreen() {
                 />
               )}
               <View className="flex-1">
-                <Text className="text-base font-rubik-bold text-gray-900" numberOfLines={1}>
+                <Text
+                  className="text-base font-rubik-bold text-gray-900"
+                  numberOfLines={1}
+                >
                   {translatedTitle}
                 </Text>
                 <Text className="text-sm font-rubik-bold text-primary-300">
@@ -1046,7 +1088,9 @@ export default function PropertyDetailScreen() {
               onPress={handleStartChat}
               disabled={startingChat || !chatMessage.trim()}
               className={`py-4 rounded-xl flex-row items-center justify-center ${
-                startingChat || !chatMessage.trim() ? "bg-gray-300" : "bg-green-500"
+                startingChat || !chatMessage.trim()
+                  ? "bg-gray-300"
+                  : "bg-green-500"
               }`}
             >
               {startingChat ? (

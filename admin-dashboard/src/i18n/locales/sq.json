@@ -115,7 +115,16 @@
     "totalFeedback": "Feedback Total",
     "pending": "Ne Pritje",
     "inReview": "Ne Shqyrtim",
-    "resolved": "Zgjidhur"
+    "resolved": "Zgjidhur",
+    "propertiesRentedPerMonth": "Prona te Lena me Qira per Muaj (12 Muajt e Fundit)",
+    "propertiesRented": "Prona te Lena me Qira",
+    "avgRentPerMonth": "Qiraja Mesatare per Muaj",
+    "avgRent": "Qiraja Mesatare",
+    "topCitiesRented": "10 Qytetet Kryesore (Prona me Qira)",
+    "topPropertyTypesByRentals": "5 Llojet Kryesore te Pronave sipas Vellimit te Qirase",
+    "annualRentalVolume": "Vellimi Vjetor i Qirase",
+    "avgDaysToRent": "Dite Mesatare per Qira",
+    "topAgentsRented": "5 Agjentet Kryesore (Prona me Qira)"
   },
   "properties": {
     "title": "Pronat",

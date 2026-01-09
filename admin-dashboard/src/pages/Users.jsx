@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Crown, AlertTriangle, Ban, ShieldCheck, Users, UserCheck, UserX, Download, Mail, Phone, Calendar, Building2 } from 'lucide-react';
+import { Trash2, Crown, AlertTriangle, Ban, ShieldCheck, Users, UserCheck, UserX, Download, Mail, Phone, Calendar, Building2, MapPin } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 import { Button } from '../components/ui/Button';
@@ -13,7 +13,14 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { ActionsDropdown } from '../components/ui/Dropdown';
 import { Select } from '../components/ui/Select';
 
-export const UsersPage = ({ token }) => {
+// Albanian cities list
+const ALBANIAN_CITIES = [
+  "Tirana", "Durrës", "Vlorë", "Elbasan", "Shkodër", "Fier", "Korçë", "Berat",
+  "Lezhë", "Gjirokastër", "Kukës", "Peshkopi", "Sarandë", "Lushnjë", "Pogradec",
+  "Kavajë", "Krujë", "Laç", "Kuçovë", "Burrel", "Patos", "Librazhd", "Shijak", "Kamëz", "Tepelenë"
+];
+
+export const UsersPage = ({ token, userRole }) => {
   const { t } = useTranslation();
   const toast = useToast();
   const [users, setUsers] = useState([]);
@@ -21,12 +28,17 @@ export const UsersPage = ({ token }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  const isCityAdmin = userRole === 'CityAdmin';
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [showCityAdminModal, setShowCityAdminModal] = useState(false);
+  const [showRevokeCityAdminModal, setShowRevokeCityAdminModal] = useState(false);
   const [showBanModal, setShowBanModal] = useState(false);
   const [showUnbanModal, setShowUnbanModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [banReason, setBanReason] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -66,6 +78,17 @@ export const UsersPage = ({ token }) => {
   const handlePromoteClick = (user) => {
     setSelectedUser(user);
     setShowPromoteModal(true);
+  };
+
+  const handleCityAdminClick = (user) => {
+    setSelectedUser(user);
+    setSelectedCity(user.city || '');
+    setShowCityAdminModal(true);
+  };
+
+  const handleRevokeCityAdminClick = (user) => {
+    setSelectedUser(user);
+    setShowRevokeCityAdminModal(true);
   };
 
   const handleBanClick = (user) => {
@@ -113,6 +136,46 @@ export const UsersPage = ({ token }) => {
     }
   };
 
+  const handleCityAdminConfirm = async () => {
+    if (!selectedUser || !selectedCity) {
+      toast.error(t('users.selectCityError', 'Please select a city'));
+      return;
+    }
+    setProcessing(true);
+    try {
+      await api.makeCityAdmin(token, selectedUser.id, selectedCity);
+      setUsers(users.map(u =>
+        u.id === selectedUser.id ? { ...u, role: 'CityAdmin', city: selectedCity } : u
+      ));
+      setShowCityAdminModal(false);
+      setSelectedUser(null);
+      setSelectedCity('');
+      toast.success(t('users.cityAdminSuccess', `User is now a CityAdmin for ${selectedCity}!`));
+    } catch {
+      toast.error(t('users.cityAdminError', 'Failed to make user CityAdmin. Please try again.'));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleRevokeCityAdminConfirm = async () => {
+    if (!selectedUser) return;
+    setProcessing(true);
+    try {
+      await api.revokeCityAdmin(token, selectedUser.id);
+      setUsers(users.map(u =>
+        u.id === selectedUser.id ? { ...u, role: 'User' } : u
+      ));
+      setShowRevokeCityAdminModal(false);
+      setSelectedUser(null);
+      toast.success(t('users.revokeCityAdminSuccess', 'CityAdmin role revoked successfully!'));
+    } catch {
+      toast.error(t('users.revokeCityAdminError', 'Failed to revoke CityAdmin role. Please try again.'));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleBanConfirm = async () => {
     if (!selectedUser) return;
     setProcessing(true);
@@ -153,10 +216,13 @@ export const UsersPage = ({ token }) => {
   const closeModals = () => {
     setShowDeleteModal(false);
     setShowPromoteModal(false);
+    setShowCityAdminModal(false);
+    setShowRevokeCityAdminModal(false);
     setShowBanModal(false);
     setShowUnbanModal(false);
     setSelectedUser(null);
     setBanReason('');
+    setSelectedCity('');
   };
 
   const getUserActions = (user) => {
@@ -167,6 +233,24 @@ export const UsersPage = ({ token }) => {
         label: t('users.promoteToAdmin', 'Promote to Admin'),
         icon: Crown,
         onClick: () => handlePromoteClick(user),
+      });
+
+      // CityAdmin option
+      if (user.role !== 'CityAdmin') {
+        actions.push({
+          label: t('users.makeCityAdmin', 'Make City Admin'),
+          icon: MapPin,
+          onClick: () => handleCityAdminClick(user),
+        });
+      }
+    }
+
+    // Revoke CityAdmin option
+    if (user.role === 'CityAdmin') {
+      actions.push({
+        label: t('users.revokeCityAdmin', 'Revoke City Admin'),
+        icon: MapPin,
+        onClick: () => handleRevokeCityAdminClick(user),
       });
     }
 
@@ -201,6 +285,7 @@ export const UsersPage = ({ token }) => {
   const getRoleBadgeVariant = (role) => {
     switch (role) {
       case 'Admin': return 'purple';
+      case 'CityAdmin': return 'warning';
       case 'Agent': return 'info';
       default: return 'default';
     }
@@ -209,6 +294,7 @@ export const UsersPage = ({ token }) => {
   const getRoleLabel = (role) => {
     switch (role) {
       case 'Admin': return t('users.roleAdmin', 'Administrator');
+      case 'CityAdmin': return t('users.roleCityAdmin', 'City Admin');
       case 'Agent': return t('users.roleAgent', 'Agent');
       default: return t('users.roleUser', 'User');
     }
@@ -217,8 +303,14 @@ export const UsersPage = ({ token }) => {
   const roleOptions = [
     { value: '', label: t('users.allRoles', 'All Roles') },
     { value: 'Admin', label: t('users.roleAdmin', 'Administrator') },
+    { value: 'CityAdmin', label: t('users.roleCityAdmin', 'City Admin') },
     { value: 'Agent', label: t('users.roleAgent', 'Agent') },
     { value: 'User', label: t('users.roleUser', 'User') },
+  ];
+
+  const cityOptions = [
+    { value: '', label: t('users.selectCity', 'Select a city...') },
+    ...ALBANIAN_CITIES.map(city => ({ value: city, label: city }))
   ];
 
   const statusOptions = [
@@ -391,6 +483,9 @@ export const UsersPage = ({ token }) => {
                     {t('users.role', 'Role')}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                    {t('users.city', 'City')}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
                     {t('users.status', 'Status')}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
@@ -399,9 +494,11 @@ export const UsersPage = ({ token }) => {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
                     {t('users.registered', 'Registered')}
                   </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-                    {t('users.actions', 'Actions')}
-                  </th>
+                  {!isCityAdmin && (
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                      {t('users.actions', 'Actions')}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-primary)]">
@@ -419,15 +516,18 @@ export const UsersPage = ({ token }) => {
                         <Skeleton className="h-3 w-24" />
                       </td>
                       <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
                       <td className="px-6 py-4"><Skeleton className="h-6 w-16 rounded-full" /></td>
                       <td className="px-6 py-4"><Skeleton className="h-4 w-8" /></td>
                       <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-6 py-4"><Skeleton className="h-8 w-8 rounded-lg ml-auto" /></td>
+                      {!isCityAdmin && (
+                        <td className="px-6 py-4"><Skeleton className="h-8 w-8 rounded-lg ml-auto" /></td>
+                      )}
                     </tr>
                   ))
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-16 text-center">
+                    <td colSpan={isCityAdmin ? 7 : 8} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center">
                         <div className="w-16 h-16 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mb-4">
                           <Users className="w-8 h-8 text-[var(--text-muted)]" />
@@ -483,8 +583,19 @@ export const UsersPage = ({ token }) => {
                       <td className="px-6 py-4">
                         <Badge variant={getRoleBadgeVariant(user.role)} className="inline-flex items-center gap-1">
                           {user.role === 'Admin' && <Crown className="w-3 h-3" />}
+                          {user.role === 'CityAdmin' && <MapPin className="w-3 h-3" />}
                           {getRoleLabel(user.role)}
                         </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        {user.city ? (
+                          <div className="flex items-center gap-1 text-sm text-[var(--text-secondary)]">
+                            <MapPin className="w-3 h-3" />
+                            {user.city}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-[var(--text-muted)]">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {user.isBanned ? (
@@ -511,13 +622,15 @@ export const UsersPage = ({ token }) => {
                           {new Date(user.createdAt).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end">
-                          {getUserActions(user).length > 0 && (
-                            <ActionsDropdown items={getUserActions(user)} />
-                          )}
-                        </div>
-                      </td>
+                      {!isCityAdmin && (
+                        <td className="px-6 py-4">
+                          <div className="flex justify-end">
+                            {getUserActions(user).length > 0 && (
+                              <ActionsDropdown items={getUserActions(user)} />
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -709,6 +822,110 @@ export const UsersPage = ({ token }) => {
             </Button>
             <Button variant="success" onClick={handleUnbanConfirm} loading={processing} className="flex-1">
               {t('users.unbanConfirm', 'Unban User')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Make CityAdmin Modal */}
+      <Modal
+        isOpen={showCityAdminModal}
+        onClose={closeModals}
+        title={t('users.makeCityAdminTitle', 'Make City Administrator')}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-warning-50 dark:bg-warning-900/20 rounded-xl border border-warning-200 dark:border-warning-800">
+            <div className="p-3 bg-warning-100 dark:bg-warning-900/30 rounded-lg">
+              <MapPin className="w-6 h-6 text-warning-600" />
+            </div>
+            <div>
+              <p className="font-medium text-[var(--text-primary)]">
+                {t('users.cityAdminWarning', 'Assign city administration')}
+              </p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                {t('users.cityAdminDescription', 'This user will manage all users and properties in the selected city.')}
+              </p>
+            </div>
+          </div>
+
+          {selectedUser && (
+            <div className="flex items-center gap-3 p-4 bg-[var(--bg-tertiary)] rounded-xl">
+              <Avatar name={selectedUser.username} size="md" />
+              <div>
+                <p className="font-semibold text-[var(--text-primary)]">{selectedUser.username}</p>
+                <p className="text-sm text-[var(--text-secondary)]">{selectedUser.email}</p>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+              {t('users.selectCityLabel', 'Select City')}
+            </label>
+            <Select
+              options={cityOptions}
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={closeModals} disabled={processing} className="flex-1">
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button variant="warning" onClick={handleCityAdminConfirm} loading={processing} disabled={!selectedCity} className="flex-1">
+              {t('users.makeCityAdminConfirm', 'Make City Admin')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Revoke CityAdmin Modal */}
+      <Modal
+        isOpen={showRevokeCityAdminModal}
+        onClose={closeModals}
+        title={t('users.revokeCityAdminTitle', 'Revoke City Admin Role')}
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-error-50 dark:bg-error-900/20 rounded-xl border border-error-200 dark:border-error-800">
+            <div className="p-3 bg-error-100 dark:bg-error-900/30 rounded-lg">
+              <MapPin className="w-6 h-6 text-error-600" />
+            </div>
+            <div>
+              <p className="font-medium text-[var(--text-primary)]">
+                {t('users.revokeCityAdminWarning', 'Remove city administration')}
+              </p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                {t('users.revokeCityAdminDescription', 'This user will no longer be able to manage their assigned city.')}
+              </p>
+            </div>
+          </div>
+
+          {selectedUser && (
+            <div className="flex items-center gap-3 p-4 bg-[var(--bg-tertiary)] rounded-xl">
+              <Avatar name={selectedUser.username} size="md" />
+              <div>
+                <p className="font-semibold text-[var(--text-primary)]">{selectedUser.username}</p>
+                <p className="text-sm text-[var(--text-secondary)]">{selectedUser.email}</p>
+                {selectedUser.city && (
+                  <p className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {t('users.currentCity', 'Current city')}: {selectedUser.city}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={closeModals} disabled={processing} className="flex-1">
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button variant="danger" onClick={handleRevokeCityAdminConfirm} loading={processing} className="flex-1">
+              {t('users.revokeCityAdminConfirm', 'Revoke Role')}
             </Button>
           </div>
         </div>

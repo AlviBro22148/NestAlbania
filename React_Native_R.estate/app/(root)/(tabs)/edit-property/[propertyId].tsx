@@ -1,5 +1,7 @@
+import CityPicker from "@/components/CityPicker";
 import InputModal from "@/components/InputModal";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
@@ -62,6 +64,7 @@ const EditProperty = () => {
   const propertyId = params.propertyId as string;
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/user-properties");
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [images, setImages] = useState<string[]>([]);
@@ -105,6 +108,7 @@ const EditProperty = () => {
   });
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState<{
     field: keyof PropertyForm;
     title: string;
@@ -165,7 +169,7 @@ const EditProperty = () => {
           title: "Error",
           message: "Property ID is missing",
         });
-        router.back();
+        handleBack();
       }
     }, [propertyId])
   );
@@ -225,7 +229,7 @@ const EditProperty = () => {
         title: "Error",
         message: error.response?.data?.message || "Failed to load property",
       });
-      router.back();
+      handleBack();
     } finally {
       setFetching(false);
     }
@@ -439,7 +443,7 @@ const EditProperty = () => {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView className="bg-white h-full">
         <View className="px-6 py-4 flex-row items-center border-b border-gray-100">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Text className="text-3xl text-primary-300">←</Text>
           </TouchableOpacity>
           <Text className="text-xl font-rubik-bold text-black-300 ml-4">
@@ -770,13 +774,7 @@ const EditProperty = () => {
 
             <View className="flex-row gap-3 mb-4">
               <TouchableOpacity
-                onPress={() =>
-                  openInputModal(
-                    "city",
-                    t("properties.city"),
-                    t("placeholders.enterCity")
-                  )
-                }
+                onPress={() => setCityPickerVisible(true)}
                 className="flex-1"
               >
                 <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
@@ -786,7 +784,7 @@ const EditProperty = () => {
                   <Text
                     className={`font-rubik text-base ${form.city ? "text-black" : "text-gray-400"}`}
                   >
-                    {form.city || t("placeholders.enterCity")}
+                    {form.city || t("cities.selectCity")}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1204,6 +1202,13 @@ const EditProperty = () => {
           numberOfLines={modalConfig.multiline ? 6 : 1}
         />
       )}
+
+      <CityPicker
+        visible={cityPickerVisible}
+        selectedCity={form.city}
+        onClose={() => setCityPickerVisible(false)}
+        onSelectCity={(city) => setForm({ ...form, city })}
+      />
     </>
   );
 };

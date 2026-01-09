@@ -1,6 +1,7 @@
 import icons from "@/constants/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { router } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
@@ -33,6 +34,7 @@ export default function AgentRequestsScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [requests, setRequests] = useState<AgentRequest[]>([]);
@@ -51,7 +53,7 @@ export default function AgentRequestsScreen() {
         title: t("common.error"),
         message: t("admin.accessDenied"),
       });
-      router.back();
+      handleBack();
       return;
     }
     loadRequests();
@@ -266,7 +268,7 @@ export default function AgentRequestsScreen() {
       {/* Header */}
       <View className="px-5 py-4 bg-white border-b border-gray-200">
         <View className="flex-row items-center mb-4">
-          <TouchableOpacity onPress={() => router.back()} className="mr-3">
+          <TouchableOpacity onPress={handleBack} className="mr-3">
             <Image source={icons.backArrow} className="w-6 h-6" />
           </TouchableOpacity>
           <Text className="text-2xl font-rubik-bold text-black-300">

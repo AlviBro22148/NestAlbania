@@ -10,5 +10,10 @@ namespace ReState.Models
         // Ban properties
         public bool IsBanned { get; set; } = false;
         public string? BanReason { get; set; }
+
+        // User info for admin dashboard
+        public string? Role { get; set; }
+        public string? City { get; set; }
+        public string? Username { get; set; }
     }
 }

@@ -1,5 +1,6 @@
 import InputModal from "@/components/InputModal";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -17,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const FeedbackScreen = () => {
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [feedbackType, setFeedbackType] = useState("General");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -122,7 +124,7 @@ const FeedbackScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="px-6 py-4 flex-row items-center justify-between border-b border-gray-100">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Ionicons name="arrow-back" size={24} color="#191D31" />
           </TouchableOpacity>
           <Text className="text-xl font-rubik-bold text-black-300">

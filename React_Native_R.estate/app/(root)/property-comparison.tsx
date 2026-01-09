@@ -1,4 +1,5 @@
 import icons from "@/constants/icons";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -51,6 +52,7 @@ interface Property {
 export default function PropertyComparisonScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams();
+  const handleBack = useBackNavigation("/(root)/(tabs)/explore");
   const propertyIds = (params.ids as string)?.split(",").map(Number) || [];
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -186,7 +188,7 @@ export default function PropertyComparisonScreen() {
             {t("comparison.selectProperties")}
           </Text>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             className="bg-primary-300 px-6 py-3 rounded-full"
           >
             <Text className="text-white font-rubik-semibold">
@@ -202,7 +204,7 @@ export default function PropertyComparisonScreen() {
     <SafeAreaView className="h-full bg-white">
       {/* Header */}
       <View className="flex flex-row items-center justify-between px-5 py-4 border-b border-gray-200">
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={handleBack}>
           <Image source={icons.backArrow} className="w-6 h-6" />
         </TouchableOpacity>
         <Text className="text-xl font-rubik-bold">

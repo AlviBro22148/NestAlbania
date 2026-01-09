@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
 import { useChat, ChatMessage, ChatConversation } from "@/contexts/ChatContext";
 import icons from "@/constants/icons";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -32,10 +33,7 @@ export default function ChatConversationScreen() {
   const [sending, setSending] = useState(false);
   const [messageText, setMessageText] = useState("");
   const flatListRef = useRef<FlatList>(null);
-
-  const handleBack = () => {
-    router.back();
-  };
+  const handleBack = useBackNavigation("/(root)/(tabs)/chats");
 
   // Load conversation and messages
   const loadData = useCallback(async () => {

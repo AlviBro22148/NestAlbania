@@ -1,11 +1,12 @@
 // app/(root)/(tabs)/community/post/[id].tsx
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -47,6 +48,7 @@ const PostDetailScreen = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/community");
   const [post, setPost] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
@@ -174,7 +176,7 @@ const PostDetailScreen = () => {
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
       <View className="px-6 py-4 flex-row items-center border-b border-gray-100 bg-white">
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color="#191D31" />
         </TouchableOpacity>
         <Text className="text-xl font-rubik-bold text-black-300 ml-4">

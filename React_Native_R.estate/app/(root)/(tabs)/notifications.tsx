@@ -1,5 +1,6 @@
 import { useAlert } from "@/contexts/AlertContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -36,6 +37,7 @@ export default function NotificationsScreen() {
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
   const { refreshCount, decrementCount, setCount } = useNotifications();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -195,7 +197,7 @@ export default function NotificationsScreen() {
       <View className="px-5 py-4 border-b border-gray-200">
         <View className="flex flex-row items-center justify-between mb-4">
           <View className="flex flex-row items-center">
-            <TouchableOpacity onPress={() => router.back()} className="mr-3">
+            <TouchableOpacity onPress={handleBack} className="mr-3">
               <Image source={icons.backArrow} className="w-6 h-6" />
             </TouchableOpacity>
             <Text className="text-2xl font-rubik-bold text-black-300">

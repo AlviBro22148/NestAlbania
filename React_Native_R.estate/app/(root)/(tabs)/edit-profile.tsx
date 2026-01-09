@@ -2,6 +2,7 @@ import InputModal from "@/components/InputModal";
 import icons from "@/constants/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -22,6 +23,7 @@ export default function ProfileEditScreen() {
   const { user, refreshUser, logout } = useAuth();
   const { showAlert, showToast } = useAlert();
   const { t } = useTranslation();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
 
   // Stats state
   const [stats, setStats] = useState({
@@ -352,7 +354,7 @@ export default function ProfileEditScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <View className="px-6 py-4 flex-row items-center justify-between border-b border-gray-100">
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={handleBack}>
           <Image source={icons.backArrow} className="w-6 h-6" />
         </TouchableOpacity>
         <Text className="text-xl font-rubik-bold text-black-300">

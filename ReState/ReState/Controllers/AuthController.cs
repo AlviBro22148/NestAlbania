@@ -536,6 +536,12 @@ namespace ReState.Controllers
                 new Claim(ClaimTypes.Role, user.Role)
             };
 
+            // Add city claim for CityAdmin users
+            if (user.Role == "CityAdmin" && !string.IsNullOrEmpty(user.City))
+            {
+                claims.Add(new Claim("city", user.City));
+            }
+
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_configuration["AppSettings:Token"]!));
 
@@ -602,9 +608,11 @@ namespace ReState.Controllers
                     email = user.Email,
                     phoneNumber = user.PhoneNumber,
                     role = user.Role,
+                    city = user.City,
                     profilePictureUrl = user.ProfilePictureUrl,
                     isAgent = user.Role == "Agent",
                     isAdmin = user.Role == "Admin",
+                    isCityAdmin = user.Role == "CityAdmin",
                     canCreateProperties = user.Role == "Agent" || user.Role == "Admin",
                     isBanned = false
                 });
@@ -1109,6 +1117,283 @@ namespace ReState.Controllers
         public class RejectAgentRequestDto
         {
             public string Reason { get; set; }
+        }
+
+
+        // POST: Make a user a CityAdmin for a specific city
+        [HttpPost("admin/make-city-admin/{userId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> MakeCityAdmin(Guid userId, [FromBody] MakeCityAdminDto dto)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dto?.City))
+                    return BadRequest(new { message = "City is required" });
+
+                var user = await _context.Userss.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { message = "User not found" });
+
+                if (user.Role == "Admin")
+                    return BadRequest(new { message = "Cannot change admin role to CityAdmin" });
+
+                user.Role = "CityAdmin";
+                user.City = dto.City;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = $"User {user.Username} is now a CityAdmin for {dto.City}",
+                    userId = user.Id,
+                    username = user.Username,
+                    newRole = user.Role,
+                    city = user.City
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error making user CityAdmin", error = ex.Message });
+            }
+        }
+
+
+        // POST: Revoke CityAdmin role
+        [HttpPost("admin/revoke-city-admin/{userId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> RevokeCityAdmin(Guid userId)
+        {
+            try
+            {
+                var user = await _context.Userss.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { message = "User not found" });
+
+                if (user.Role != "CityAdmin")
+                    return BadRequest(new { message = "User is not a CityAdmin" });
+
+                user.Role = "User";
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = $"CityAdmin role revoked for {user.Username}",
+                    userId = user.Id,
+                    username = user.Username,
+                    newRole = user.Role
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error revoking CityAdmin role", error = ex.Message });
+            }
+        }
+
+
+        public class MakeCityAdminDto
+        {
+            public string City { get; set; } = string.Empty;
+        }
+
+
+        // ==================== USER PREFERENCES ENDPOINTS ====================
+
+        // GET: Get current user's preferences
+        [HttpGet("preferences")]
+        [Authorize]
+        public async Task<IActionResult> GetPreferences()
+        {
+            try
+            {
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                var preference = await _context.UserPreferences
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                if (preference == null)
+                {
+                    // Return empty preferences response
+                    return Ok(new UserPreferenceResponseDto
+                    {
+                        UserId = userId,
+                        HasPreferences = false
+                    });
+                }
+
+                return Ok(new UserPreferenceResponseDto
+                {
+                    Id = preference.Id,
+                    UserId = preference.UserId,
+                    PreferredPropertyTypes = preference.PropertyTypesList,
+                    MinBedrooms = preference.MinBedrooms,
+                    MaxBedrooms = preference.MaxBedrooms,
+                    MinBathrooms = preference.MinBathrooms,
+                    MaxBathrooms = preference.MaxBathrooms,
+                    MinPrice = preference.MinPrice,
+                    MaxPrice = preference.MaxPrice,
+                    MinArea = preference.MinArea,
+                    MaxArea = preference.MaxArea,
+                    PreferredCities = preference.CitiesList,
+                    ListingType = preference.ListingType,
+                    WantsGarage = preference.WantsGarage,
+                    WantsPetFriendly = preference.WantsPetFriendly,
+                    WantsPool = preference.WantsPool,
+                    WantsGym = preference.WantsGym,
+                    WantsAirConditioning = preference.WantsAirConditioning,
+                    PrefersGreenHomes = preference.PrefersGreenHomes,
+                    MinEcoScore = preference.MinEcoScore,
+                    CreatedAt = preference.CreatedAt,
+                    UpdatedAt = preference.UpdatedAt,
+                    HasPreferences = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching preferences", error = ex.Message });
+            }
+        }
+
+        // POST: Create or update user preferences
+        [HttpPost("preferences")]
+        [Authorize]
+        public async Task<IActionResult> SavePreferences([FromBody] UserPreferenceDto dto)
+        {
+            try
+            {
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                var existingPreference = await _context.UserPreferences
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                if (existingPreference == null)
+                {
+                    // Create new preference
+                    var newPreference = new UserPreference
+                    {
+                        UserId = userId,
+                        PropertyTypesList = dto.PreferredPropertyTypes ?? new List<string>(),
+                        MinBedrooms = dto.MinBedrooms,
+                        MaxBedrooms = dto.MaxBedrooms,
+                        MinBathrooms = dto.MinBathrooms,
+                        MaxBathrooms = dto.MaxBathrooms,
+                        MinPrice = dto.MinPrice,
+                        MaxPrice = dto.MaxPrice,
+                        MinArea = dto.MinArea,
+                        MaxArea = dto.MaxArea,
+                        CitiesList = dto.PreferredCities ?? new List<string>(),
+                        ListingType = dto.ListingType,
+                        WantsGarage = dto.WantsGarage,
+                        WantsPetFriendly = dto.WantsPetFriendly,
+                        WantsPool = dto.WantsPool,
+                        WantsGym = dto.WantsGym,
+                        WantsAirConditioning = dto.WantsAirConditioning,
+                        PrefersGreenHomes = dto.PrefersGreenHomes,
+                        MinEcoScore = dto.MinEcoScore,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _context.UserPreferences.Add(newPreference);
+                    await _context.SaveChangesAsync();
+
+                    return Ok(new
+                    {
+                        message = "Preferences saved successfully",
+                        preferenceId = newPreference.Id,
+                        isNew = true
+                    });
+                }
+                else
+                {
+                    // Update existing preference
+                    existingPreference.PropertyTypesList = dto.PreferredPropertyTypes ?? new List<string>();
+                    existingPreference.MinBedrooms = dto.MinBedrooms;
+                    existingPreference.MaxBedrooms = dto.MaxBedrooms;
+                    existingPreference.MinBathrooms = dto.MinBathrooms;
+                    existingPreference.MaxBathrooms = dto.MaxBathrooms;
+                    existingPreference.MinPrice = dto.MinPrice;
+                    existingPreference.MaxPrice = dto.MaxPrice;
+                    existingPreference.MinArea = dto.MinArea;
+                    existingPreference.MaxArea = dto.MaxArea;
+                    existingPreference.CitiesList = dto.PreferredCities ?? new List<string>();
+                    existingPreference.ListingType = dto.ListingType;
+                    existingPreference.WantsGarage = dto.WantsGarage;
+                    existingPreference.WantsPetFriendly = dto.WantsPetFriendly;
+                    existingPreference.WantsPool = dto.WantsPool;
+                    existingPreference.WantsGym = dto.WantsGym;
+                    existingPreference.WantsAirConditioning = dto.WantsAirConditioning;
+                    existingPreference.PrefersGreenHomes = dto.PrefersGreenHomes;
+                    existingPreference.MinEcoScore = dto.MinEcoScore;
+                    existingPreference.UpdatedAt = DateTime.UtcNow;
+
+                    await _context.SaveChangesAsync();
+
+                    return Ok(new
+                    {
+                        message = "Preferences updated successfully",
+                        preferenceId = existingPreference.Id,
+                        isNew = false
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error saving preferences", error = ex.Message });
+            }
+        }
+
+        // DELETE: Clear user preferences
+        [HttpDelete("preferences")]
+        [Authorize]
+        public async Task<IActionResult> ClearPreferences()
+        {
+            try
+            {
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                var preference = await _context.UserPreferences
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                if (preference == null)
+                    return NotFound(new { message = "No preferences found to delete" });
+
+                _context.UserPreferences.Remove(preference);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Preferences cleared successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error clearing preferences", error = ex.Message });
+            }
+        }
+
+        // GET: Check if user has preferences (for showing dialog)
+        [HttpGet("preferences/exists")]
+        [Authorize]
+        public async Task<IActionResult> HasPreferences()
+        {
+            try
+            {
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                var exists = await _context.UserPreferences
+                    .AnyAsync(p => p.UserId == userId);
+
+                return Ok(new { hasPreferences = exists });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error checking preferences", error = ex.Message });
+            }
         }
 
     }

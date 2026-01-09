@@ -251,6 +251,19 @@ export const PropertyDetailPage = ({ propertyId, token, onBack }) => {
     { value: 'Platinum', label: t('propertyDetails.leed.platinum', 'Platinum') },
   ];
 
+  // Albanian cities list
+  const albanianCities = [
+    'Tirana', 'Durrës', 'Vlorë', 'Elbasan', 'Shkodër', 'Fier', 'Korçë', 'Berat',
+    'Lezhë', 'Gjirokastër', 'Kukës', 'Peshkopi', 'Sarandë', 'Lushnjë', 'Pogradec',
+    'Kavajë', 'Krujë', 'Laç', 'Kuçovë', 'Burrel', 'Patos', 'Librazhd', 'Shijak',
+    'Kamëz', 'Tepelenë'
+  ];
+
+  const cityOptions = [
+    { value: '', label: t('properties.selectCity', 'Select city') },
+    ...albanianCities.map(city => ({ value: city, label: city }))
+  ];
+
   const getStatusType = (status) => {
     switch (status) {
       case 'Available': return 'success';
@@ -474,14 +487,14 @@ export const PropertyDetailPage = ({ propertyId, token, onBack }) => {
                 required
               />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
+                <Select
                   label={t('propertyDetails.city', 'City')}
                   name="city"
+                  options={cityOptions}
                   value={formData.city}
                   onChange={handleChange}
                   disabled={!editing}
                   error={errors.city}
-                  required
                 />
                 <Input
                   label={t('propertyDetails.neighborhood', 'Neighborhood')}

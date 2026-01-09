@@ -44,6 +44,13 @@
     "albanian": "Shqip"
   },
 
+  "cities": {
+    "city": "Qyteti",
+    "selectCity": "Zgjidhni Qytetin Tuaj",
+    "searchCity": "Kërko qytetin...",
+    "noResults": "Nuk u gjet asnjë qytet"
+  },
+
    "comparison": {
       "title": "Krahasoni Pronat",
       "noProperties": "Asnjë Pronë e Zgjedhur",
@@ -123,7 +130,9 @@
     "accountCreated": "Llogaria u krijua me sukses!",
       "phoneNumber": "Numri i Telefonit",
     "joinNestAlbania": "Bashkohu me NestAlbania dhe gjej pronën e ëndrrave",
-    "confirmPassword": "Konfirmo Fjalëkalimin"
+    "confirmPassword": "Konfirmo Fjalëkalimin",
+    "fillAllFields": "Ju lutemi plotësoni të gjitha fushat",
+    "registrationSuccess": "Llogaria u krijua me sukses! Mirë se vini në NestAlbania"
   },
 
   "banned": {
@@ -278,6 +287,7 @@
   },
   
   "properties": {
+    "month": "muaj",
     "explore": "Eksploro Pronat",
     "featured": "Të veçuara",
     "ourRecommendation": "Rekomandimet tona",
@@ -368,7 +378,13 @@
     "Available": "E Disponueshme",
     "Rented": "Me Qira",
     "OnRent": "Për Qira",
-    "OnSale": "Për Shitje"
+    "OnSale": "Për Shitje",
+    "leaseTerm": "Kohëzgjatja e Qirasë",
+    "months": "muaj",
+    "furnishedStatus": "Statusi i Mobilimit",
+    "unfurnished": "Pa Mobilim",
+    "semiFurnished": "Gjysmë e Mobiluar",
+    "fullyFurnished": "Plotësisht e Mobiluar"
   },
   "editProperty": {
     "editProperty": "Modifiko Pronën",
@@ -940,6 +956,63 @@
     "feedbackNotification": {
       "resolvedTitle": "Feedback-u u Zgjidh",
       "resolvedMessage": "Faleminderit! Feedback-u juaj është shqyrtuar dhe zgjidhur. Ne vlerësojmë shumë kohën që morët për të na ndihmuar të përmirësojmë NestAlbania!"
+    },
+
+    "preferences": {
+      "yourChoice": "Zgjedhja Jote",
+      "yourPreferences": "Preferencat e Tua",
+      "personalizedForYou": "Prona të personalizuara bazuar në preferencat e tua",
+      "setPreferencesToPersonalize": "Vendos preferencat për të parë listat e personalizuara",
+      "editPreferences": "Ndrysho Preferencat",
+      "setPreferences": "Vendos Preferencat",
+      "noMatchingProperties": "Asnjë pronë nuk përputhet me preferencat e tua ende",
+      "setPreferencesToSee": "Vendos preferencat për të parë rekomandimet e personalizuara të pronave",
+      "setNow": "Vendos Preferencat Tani",
+      "showingProperties": "Duke shfaqur {{shown}} nga {{total}} prona",
+      "welcomeTitle": "Na trego çfarë kërkon",
+      "welcomeMessage": "Mirë se erdhe në NestAlbania! Gjej pronën e përsosur.",
+      "whatLookingFor": "Çfarë po kërkon?",
+      "selectPropertyTypes": "Zgjidh llojet e pronave që të interesojnë",
+      "lookingTo": "Kërkon të",
+      "sale": "Blesh",
+      "rent": "Marrësh me Qira",
+      "both": "Të Dyja",
+      "propertyTypes": "Llojet e Pronave",
+      "roomPreferences": "Preferencat e Dhomave",
+      "selectRoomCount": "Sa dhoma gjumi dhe banjo duhen?",
+      "bedrooms": "Dhoma Gjumi",
+      "bathrooms": "Banjo",
+      "min": "Min",
+      "max": "Maks",
+      "budgetLocation": "Buxheti & Vendndodhja",
+      "setPriceAndCities": "Vendos rangun e çmimit dhe qytetet e preferuara",
+      "priceRange": "Rangu i Çmimit",
+      "minPrice": "Çmimi Min",
+      "maxPrice": "Çmimi Maks",
+      "noLimit": "Pa limit",
+      "preferredCities": "Qytetet e Preferuara",
+      "amenities": "Komoditete",
+      "selectAmenities": "Zgjidh komoditetet e domosdoshme",
+      "garage": "Garazh",
+      "petFriendly": "Pranuese për Kafshë",
+      "pool": "Pishinë",
+      "gym": "Palestër / Fitnes",
+      "airConditioning": "Kondicioner",
+      "greenHomes": "Shtëpi Ekologjike",
+      "skip": "Kapërce",
+      "back": "Prapa",
+      "next": "Vazhdo",
+      "save": "Ruaj Preferencat",
+      "preferencesSaved": "Preferencat u ruajtën me sukses!",
+      "preferencesCleared": "Preferencat u pastruan",
+      "preferencesDescription": "Vendos preferencat e pronave për të marrë rekomandimet e personalizuara në faqen kryesore.",
+      "notSet": "I pavendosur",
+      "clearPreferencesTitle": "Pastro Preferencat?",
+      "clearPreferencesMessage": "Kjo do të heqë të gjitha preferencat e ruajtura. Mund t'i vendosësh përsëri më vonë.",
+      "clear": "Pastro",
+      "clearPreferences": "Pastro Preferencat",
+      "noPreferencesTitle": "Asnjë Preferencë e Vendosur",
+      "noPreferencesMessage": "Vendos preferencat e pronave për të marrë rekomandimet e personalizuara dhe për të parë pronat që përputhen me kriteret e tua."
     }
   }
 

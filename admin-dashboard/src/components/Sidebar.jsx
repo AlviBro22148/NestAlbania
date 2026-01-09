@@ -13,7 +13,7 @@ export const Sidebar = ({
   onLogout,
   isMobileOpen,
   setIsMobileOpen,
-  user
+  userRole
 }) => {
   const { t } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -21,12 +21,15 @@ export const Sidebar = ({
     return saved === 'true';
   });
 
+  const isCityAdmin = userRole === 'CityAdmin';
+
   // Save collapsed state
   useEffect(() => {
     localStorage.setItem('sidebar_collapsed', isCollapsed);
   }, [isCollapsed]);
 
-  const menuGroups = [
+  // Define all menu groups
+  const allMenuGroups = [
     {
       label: t('sidebar.main', 'Main'),
       items: [
@@ -42,6 +45,7 @@ export const Sidebar = ({
         { id: 'community', icon: Globe, label: t('sidebar.community') },
         { id: 'agentrequest', icon: UserCheck, label: t('sidebar.agentRequests') },
       ],
+      adminOnly: true, // Hide from CityAdmin
     },
     {
       label: t('sidebar.content', 'Content'),
@@ -49,15 +53,26 @@ export const Sidebar = ({
         { id: 'blog', icon: FileText, label: t('sidebar.blog') },
         { id: 'helpcenter', icon: HelpCircle, label: t('sidebar.helpCenter') },
       ],
+      adminOnly: true, // Hide from CityAdmin
     },
     {
       label: t('sidebar.other', 'Other'),
       items: [
-        { id: 'chat', icon: MessagesSquare, label: t('sidebar.chat') },
+        { id: 'chat', icon: MessagesSquare, label: t('sidebar.chat'), adminOnly: true },
         { id: 'settings', icon: Settings, label: t('sidebar.settings') },
       ],
     },
   ];
+
+  // Filter menu groups for CityAdmin
+  const menuGroups = isCityAdmin
+    ? allMenuGroups
+        .filter(group => !group.adminOnly)
+        .map(group => ({
+          ...group,
+          items: group.items.filter(item => !item.adminOnly)
+        }))
+    : allMenuGroups;
 
   const NavItem = ({ item }) => {
     const isActive = activePage === item.id;

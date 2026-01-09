@@ -32,6 +32,7 @@ namespace ReState.Data
         public DbSet<ReportProperty> ReportProperties { get; set; }
         public DbSet<ChatConversation> ChatConversations { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<UserPreference> UserPreferences { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -257,6 +258,18 @@ namespace ReState.Data
 
                 entity.HasIndex(m => m.ConversationId);
                 entity.HasIndex(m => new { m.ConversationId, m.IsRead });
+            });
+
+            // UserPreference configuration - One-to-One with User
+            modelBuilder.Entity<UserPreference>(entity =>
+            {
+                entity.HasOne(up => up.User)
+                    .WithOne(u => u.Preference)
+                    .HasForeignKey<UserPreference>(up => up.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(up => up.UserId)
+                    .IsUnique();
             });
         }
 

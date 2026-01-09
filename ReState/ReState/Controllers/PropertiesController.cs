@@ -1387,24 +1387,47 @@ namespace ReState.Controllers
             return role == "Agent" || role == "Admin";
         }
 
+        // Helper method to get city for CityAdmin filtering
+        private string? GetCityForFiltering()
+        {
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+            if (role == "CityAdmin")
+            {
+                return User.FindFirst("city")?.Value;
+            }
+            return null; // Full Admin sees all
+        }
+
         // ADMIN ENDPOINTS
         [HttpGet("admin/stats")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,CityAdmin")]
         public async Task<IActionResult> GetAdminStats()
         {
-            var totalUsers = await _context.Userss.CountAsync();
-            var totalProperties = await _context.Properties.CountAsync();
-            var activeProperties = await _context.Properties.CountAsync(p => p.Status == "Available");
-            var soldProperties = await _context.Properties.CountAsync(p => p.Status == "Sold");
-            var totalRevenue = await _context.Properties.SumAsync(p => (decimal?)p.Price) ?? 0;
+            var cityFilter = GetCityForFiltering();
 
-            var recentUsers = await _context.Userss
+            var usersQuery = _context.Userss.AsQueryable();
+            var propertiesQuery = _context.Properties.AsQueryable();
+
+            // Apply city filter for CityAdmin
+            if (!string.IsNullOrEmpty(cityFilter))
+            {
+                usersQuery = usersQuery.Where(u => u.City == cityFilter);
+                propertiesQuery = propertiesQuery.Where(p => p.City == cityFilter);
+            }
+
+            var totalUsers = await usersQuery.CountAsync();
+            var totalProperties = await propertiesQuery.CountAsync();
+            var activeProperties = await propertiesQuery.CountAsync(p => p.Status == "Available");
+            var soldProperties = await propertiesQuery.CountAsync(p => p.Status == "Sold");
+            var totalRevenue = await propertiesQuery.SumAsync(p => (decimal?)p.Price) ?? 0;
+
+            var recentUsers = await usersQuery
                 .OrderByDescending(u => u.CreatedAt)
                 .Take(5)
                 .Select(u => new { u.Id, u.Username, u.Email, u.CreatedAt })
                 .ToListAsync();
 
-            var recentProperties = await _context.Properties
+            var recentProperties = await propertiesQuery
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(5)
                 .Select(p => new { p.Id, p.Title, p.Price, p.CreatedAt })
@@ -1419,14 +1442,24 @@ namespace ReState.Controllers
                 soldProperties,
                 recentUsers,
                 recentProperties,
+                cityFilter // Include so frontend knows what city is being filtered
             });
         }
 
         [HttpGet("admin/all-users")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,CityAdmin")]
         public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 100)
         {
-            var users = await _context.Userss
+            var cityFilter = GetCityForFiltering();
+            var query = _context.Userss.AsQueryable();
+
+            // Apply city filter for CityAdmin
+            if (!string.IsNullOrEmpty(cityFilter))
+            {
+                query = query.Where(u => u.City == cityFilter);
+            }
+
+            var users = await query
                 .OrderByDescending(u => u.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -1437,6 +1470,7 @@ namespace ReState.Controllers
                     u.Email,
                     u.PhoneNumber,
                     u.Role,
+                    u.City,
                     u.ProfilePictureUrl,
                     u.CreatedAt,
                     PropertyCount = u.Properties != null ? u.Properties.Count : 0,
@@ -1450,11 +1484,19 @@ namespace ReState.Controllers
         }
 
         [HttpGet("admin/all-properties")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,CityAdmin")]
         public async Task<IActionResult> GetAllPropertiesAdmin([FromQuery] int page = 1, [FromQuery] int pageSize = 100)
         {
-            var properties = await _context.Properties
-                .Include(p => p.User)
+            var cityFilter = GetCityForFiltering();
+            var query = _context.Properties.Include(p => p.User).AsQueryable();
+
+            // Apply city filter for CityAdmin
+            if (!string.IsNullOrEmpty(cityFilter))
+            {
+                query = query.Where(p => p.City == cityFilter);
+            }
+
+            var properties = await query
                 .OrderByDescending(p => p.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -1605,8 +1647,18 @@ namespace ReState.Controllers
                     return NotFound(new { message = "Property not found" });
 
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-                if (userRole != "Admin" && property.UserId != userId)
+
+                // Check permissions: Admin can edit all, CityAdmin can edit properties in their city, others can only edit their own
+                if (userRole == "CityAdmin")
+                {
+                    var userCity = User.FindFirst("city")?.Value;
+                    if (string.IsNullOrEmpty(userCity) || property.City != userCity)
+                        return StatusCode(403, new { message = "You can only edit properties in your city" });
+                }
+                else if (userRole != "Admin" && property.UserId != userId)
+                {
                     return StatusCode(403, new { message = "You can only edit your own properties" });
+                }
 
                 var oldPrice = property.Price;
                 var oldStatus = property.Status;
@@ -1792,20 +1844,34 @@ namespace ReState.Controllers
         }
 
         [HttpGet("charts")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,CityAdmin")]
         public async Task<IActionResult> GetDashboardCharts()
         {
             try
             {
-                var usersWithProperties = await _context.Userss
-                    .Include(u => u.Properties)
-                    .ToListAsync();
+                var cityFilter = GetCityForFiltering();
+
+                var usersQuery = _context.Userss.Include(u => u.Properties).AsQueryable();
+                var propertiesQuery = _context.Properties.AsQueryable();
+
+                // Apply city filter for CityAdmin
+                if (!string.IsNullOrEmpty(cityFilter))
+                {
+                    usersQuery = usersQuery.Where(u => u.City == cityFilter);
+                    propertiesQuery = propertiesQuery.Where(p => p.City == cityFilter);
+                }
+
+                var usersWithProperties = await usersQuery.ToListAsync();
 
                 var twelveMonthsAgo = DateTime.UtcNow.AddMonths(-12);
-                var allProperties = await _context.Properties.ToListAsync();
+                var allProperties = await propertiesQuery.ToListAsync();
 
                 var soldPropertiesLast12Months = allProperties
                     .Where(p => p.Status == "Sold" && p.UpdatedAt.HasValue && p.UpdatedAt.Value >= twelveMonthsAgo)
+                    .ToList();
+
+                var rentedPropertiesLast12Months = allProperties
+                    .Where(p => p.Status == "Rented" && p.UpdatedAt.HasValue && p.UpdatedAt.Value >= twelveMonthsAgo)
                     .ToList();
 
                 var topAgents = usersWithProperties
@@ -1816,6 +1882,17 @@ namespace ReState.Controllers
                         SoldCount = u.Properties?.Count(p => p.Status == "Sold") ?? 0
                     })
                     .OrderByDescending(x => x.SoldCount)
+                    .Take(5)
+                    .ToList();
+
+                var topAgentsRented = usersWithProperties
+                    .Where(u => u.Properties?.Any(p => p.Status == "Rented") == true)
+                    .Select(u => new
+                    {
+                        Username = u.Username,
+                        RentedCount = u.Properties?.Count(p => p.Status == "Rented") ?? 0
+                    })
+                    .OrderByDescending(x => x.RentedCount)
                     .Take(5)
                     .ToList();
 
@@ -1848,7 +1925,31 @@ namespace ReState.Controllers
                     .Select(x => new { x.Month, x.AvgPrice })
                     .ToList();
 
+                // Rental monthly data
+                var rentalMonthlyData = rentedPropertiesLast12Months
+                    .GroupBy(p => new {
+                        Year = p.UpdatedAt.Value.Year,
+                        Month = p.UpdatedAt.Value.Month
+                    })
+                    .Select(g => new
+                    {
+                        Month = $"{g.Key.Year}-{g.Key.Month:D2}",
+                        Count = g.Count(),
+                        AvgRent = g.Average(p => (decimal?)p.MonthlyRent) ?? 0
+                    })
+                    .OrderBy(x => x.Month)
+                    .ToList();
+
+                var propertiesRentedPerMonth = rentalMonthlyData
+                    .Select(x => new { x.Month, x.Count })
+                    .ToList();
+
+                var avgRentPerMonth = rentalMonthlyData
+                    .Select(x => new { x.Month, x.AvgRent })
+                    .ToList();
+
                 var soldPropertiesAllTime = allProperties.Where(p => p.Status == "Sold").ToList();
+                var rentedPropertiesAllTime = allProperties.Where(p => p.Status == "Rented").ToList();
 
                 var propertiesSoldByCity = soldPropertiesAllTime
                     .Where(p => !string.IsNullOrWhiteSpace(p.City))
@@ -1858,7 +1959,21 @@ namespace ReState.Controllers
                     .Take(10)
                     .ToList();
 
+                var propertiesRentedByCity = rentedPropertiesAllTime
+                    .Where(p => !string.IsNullOrWhiteSpace(p.City))
+                    .GroupBy(p => p.City)
+                    .Select(g => new { City = g.Key, Count = g.Count() })
+                    .OrderByDescending(x => x.Count)
+                    .Take(10)
+                    .ToList();
+
                 var avgDaysToSell = soldPropertiesAllTime
+                    .Where(p => p.UpdatedAt.HasValue)
+                    .Select(p => (p.UpdatedAt.Value - p.CreatedAt).TotalDays)
+                    .DefaultIfEmpty(0)
+                    .Average();
+
+                var avgDaysToRent = rentedPropertiesAllTime
                     .Where(p => p.UpdatedAt.HasValue)
                     .Select(p => (p.UpdatedAt.Value - p.CreatedAt).TotalDays)
                     .DefaultIfEmpty(0)
@@ -1882,9 +1997,23 @@ namespace ReState.Controllers
                     .Select(g => new { PropertyType = g.Key, Count = g.Count() })
                     .ToList();
 
+                var topPropertyTypesByRentalVolume = rentedPropertiesAllTime
+                    .Where(p => !string.IsNullOrWhiteSpace(p.PropertyType))
+                    .GroupBy(p => p.PropertyType)
+                    .Select(g => new
+                    {
+                        PropertyType = g.Key,
+                        TotalRentalVolume = g.Sum(p => p.MonthlyRent ?? 0) * 12, // Annual rental value
+                        Count = g.Count()
+                    })
+                    .OrderByDescending(x => x.TotalRentalVolume)
+                    .Take(5)
+                    .ToList();
+
                 return Ok(new
                 {
                     TopAgents = topAgents,
+                    TopAgentsRented = topAgentsRented,
                     propertiesByStatus,
                     propertiesSoldPerMonth,
                     avgPricePerMonth,
@@ -1892,7 +2021,13 @@ namespace ReState.Controllers
                     avgDaysToSell = Math.Round(avgDaysToSell, 1),
                     topPropertyTypesBySalesVolume,
                     propertyTypesDistribution,
-                    propertiesByPriceRange
+                    propertiesByPriceRange,
+                    // Rental data
+                    propertiesRentedPerMonth,
+                    avgRentPerMonth,
+                    propertiesRentedByCity,
+                    avgDaysToRent = Math.Round(avgDaysToRent, 1),
+                    topPropertyTypesByRentalVolume
                 });
             }
             catch (Exception ex)
@@ -1924,6 +2059,232 @@ namespace ReState.Controllers
             }).ToList<object>();
 
             return propertiesByPriceRange;
+        }
+
+        // GET: api/properties/your-choice - Personalized properties based on user preferences
+        [HttpGet("your-choice")]
+        [Authorize]
+        public async Task<IActionResult> GetYourChoice([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            try
+            {
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                // Get user preferences
+                var preferences = await _context.UserPreferences
+                    .FirstOrDefaultAsync(p => p.UserId == userId);
+
+                // Start with all available properties
+                var query = _context.Properties
+                    .Include(p => p.User)
+                    .Where(p => p.Status == "Available")
+                    .AsQueryable();
+
+                bool hasFilters = false;
+
+                if (preferences != null)
+                {
+                    // Apply property type filter
+                    var propertyTypes = preferences.PropertyTypesList;
+                    if (propertyTypes.Any())
+                    {
+                        query = query.Where(p => propertyTypes.Contains(p.PropertyType));
+                        hasFilters = true;
+                    }
+
+                    // Apply bedroom filter
+                    if (preferences.MinBedrooms.HasValue)
+                    {
+                        query = query.Where(p => p.Bedrooms >= preferences.MinBedrooms.Value);
+                        hasFilters = true;
+                    }
+                    if (preferences.MaxBedrooms.HasValue)
+                    {
+                        query = query.Where(p => p.Bedrooms <= preferences.MaxBedrooms.Value);
+                        hasFilters = true;
+                    }
+
+                    // Apply bathroom filter
+                    if (preferences.MinBathrooms.HasValue)
+                    {
+                        query = query.Where(p => p.Bathrooms >= preferences.MinBathrooms.Value);
+                        hasFilters = true;
+                    }
+                    if (preferences.MaxBathrooms.HasValue)
+                    {
+                        query = query.Where(p => p.Bathrooms <= preferences.MaxBathrooms.Value);
+                        hasFilters = true;
+                    }
+
+                    // Apply price filter
+                    if (preferences.MinPrice.HasValue)
+                    {
+                        query = query.Where(p => p.Price >= preferences.MinPrice.Value);
+                        hasFilters = true;
+                    }
+                    if (preferences.MaxPrice.HasValue)
+                    {
+                        query = query.Where(p => p.Price <= preferences.MaxPrice.Value);
+                        hasFilters = true;
+                    }
+
+                    // Apply area filter
+                    if (preferences.MinArea.HasValue)
+                    {
+                        query = query.Where(p => p.Area >= preferences.MinArea.Value);
+                        hasFilters = true;
+                    }
+                    if (preferences.MaxArea.HasValue)
+                    {
+                        query = query.Where(p => p.Area <= preferences.MaxArea.Value);
+                        hasFilters = true;
+                    }
+
+                    // Apply city filter
+                    var cities = preferences.CitiesList;
+                    if (cities.Any())
+                    {
+                        query = query.Where(p => cities.Contains(p.City));
+                        hasFilters = true;
+                    }
+
+                    // Apply listing type filter
+                    if (!string.IsNullOrEmpty(preferences.ListingType) && preferences.ListingType != "Both")
+                    {
+                        query = query.Where(p => p.ListingType == preferences.ListingType);
+                        hasFilters = true;
+                    }
+
+                    // Apply amenity filters
+                    if (preferences.WantsGarage == true)
+                    {
+                        query = query.Where(p => p.HasGarage);
+                        hasFilters = true;
+                    }
+                    if (preferences.WantsPetFriendly == true)
+                    {
+                        query = query.Where(p => p.IsPetFriendly);
+                        hasFilters = true;
+                    }
+                    if (preferences.WantsPool == true)
+                    {
+                        query = query.Where(p => p.HasPool);
+                        hasFilters = true;
+                    }
+                    if (preferences.WantsGym == true)
+                    {
+                        query = query.Where(p => p.HasGym);
+                        hasFilters = true;
+                    }
+                    if (preferences.WantsAirConditioning == true)
+                    {
+                        query = query.Where(p => p.HasAirConditioning);
+                        hasFilters = true;
+                    }
+
+                    // Apply green home preference
+                    if (preferences.PrefersGreenHomes == true)
+                    {
+                        query = query.Where(p =>
+                            p.HasLEEDCertification ||
+                            p.HasEnergyStarCertification ||
+                            p.HasSolarPanels ||
+                            p.HasEnergyEfficientAppliances);
+                        hasFilters = true;
+                    }
+                }
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+
+                // Ensure pageSize is reasonable
+                pageSize = Math.Min(Math.Max(pageSize, 1), 50);
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+                // Get properties with pagination
+                var properties = await query
+                    .OrderByDescending(p => p.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                // Apply eco score filter in memory (computed property)
+                if (preferences?.MinEcoScore.HasValue == true)
+                {
+                    properties = properties.Where(p => p.EcoScore >= preferences.MinEcoScore.Value).ToList();
+                }
+
+                var response = properties.Select(p => new PropertyResponseDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Description = p.Description,
+                    Address = p.Address,
+                    Price = p.Price,
+                    Bedrooms = p.Bedrooms,
+                    Bathrooms = p.Bathrooms,
+                    Area = p.Area,
+                    PropertyType = p.PropertyType,
+                    Status = p.Status,
+                    Images = p.Images,
+                    UserId = p.UserId,
+                    OwnerName = p.User?.Username,
+                    CreatedAt = p.CreatedAt,
+                    OwnerPhone = p.User?.PhoneNumber,
+                    OwnerEmail = p.User?.Email,
+                    ListingType = p.ListingType,
+                    MonthlyRent = p.MonthlyRent,
+                    LeaseTermMonths = p.LeaseTermMonths,
+                    SecurityDeposit = p.SecurityDeposit,
+                    UtilitiesIncluded = p.UtilitiesIncluded,
+                    FurnishedStatus = p.FurnishedStatus,
+                    City = p.City,
+                    Neighborhood = p.Neighborhood,
+                    ZipCode = p.ZipCode,
+                    LotSize = p.LotSize,
+                    ParkingSpaces = p.ParkingSpaces,
+                    HasGarage = p.HasGarage,
+                    IsPetFriendly = p.IsPetFriendly,
+                    HasInUnitLaundry = p.HasInUnitLaundry,
+                    HasPool = p.HasPool,
+                    HasGym = p.HasGym,
+                    HasAirConditioning = p.HasAirConditioning,
+                    YearBuilt = p.YearBuilt,
+                    HasSolarPanels = p.HasSolarPanels,
+                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
+                    HasLEDLighting = p.HasLEDLighting,
+                    HasSmartThermostats = p.HasSmartThermostats,
+                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
+                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
+                    HasGreenRoof = p.HasGreenRoof,
+                    HasEnergyStarCertification = p.HasEnergyStarCertification,
+                    HasLEEDCertification = p.HasLEEDCertification,
+                    LEEDLevel = p.LEEDLevel,
+                    EcoScore = p.EcoScore
+                }).ToList();
+
+                return Ok(new
+                {
+                    properties = response,
+                    pagination = new
+                    {
+                        currentPage = page,
+                        pageSize = pageSize,
+                        totalCount = totalCount,
+                        totalPages = totalPages,
+                        hasNextPage = page < totalPages,
+                        hasPreviousPage = page > 1
+                    },
+                    hasPreferences = preferences != null,
+                    hasFilters = hasFilters
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving your choice properties", error = ex.Message });
+            }
         }
     }
 

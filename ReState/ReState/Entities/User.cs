@@ -29,6 +29,10 @@ namespace ReState.Entities
         [StringLength(20)]
         public string Role { get; set; } = "User";
 
+        // City field for CityAdmin filtering
+        [StringLength(50)]
+        public string? City { get; set; }
+
         // Google OAuth properties
         public string? GoogleId { get; set; }
         public string? ProfilePictureUrl { get; set; }
@@ -37,8 +41,9 @@ namespace ReState.Entities
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiryTime { get; set; }
 
-        // Navigation property
+        // Navigation properties
         public ICollection<Property>? Properties { get; set; }
+        public UserPreference? Preference { get; set; }
 
         // Timestamps
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

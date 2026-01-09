@@ -58,7 +58,8 @@ interface AuthContextType {
     username: string,
     email: string,
     password: string,
-    phoneNumber: string
+    phoneNumber: string,
+    city: string
   ) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -95,15 +96,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Fetch user profile
         await fetchUserProfile();
       } else {
-        // No tokens found - redirect to sign-up
+        // No tokens found - set user to null
+        // Navigation will be handled by ProtectedRoute component
         setUser(null);
-        router.replace("/auth/sign-up");
       }
     } catch (error) {
       console.error("Auth check error:", error);
       setUser(null);
-      // On error, redirect to sign-up
-      router.replace("/auth/sign-up");
     } finally {
       setLoading(false);
     }
@@ -144,8 +143,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await AsyncStorage.setItem("userId", response.data.id.toString());
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      // If fetching profile fails, clear tokens
-      await logout();
+      // If fetching profile fails, clear tokens but don't navigate
+      await AsyncStorage.multiRemove(["accessToken", "refreshToken", "userId"]);
+      setUser(null);
     }
   };
 
@@ -252,7 +252,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     username: string,
     email: string,
     password: string,
-    phoneNumber: string
+    phoneNumber: string,
+    city: string
   ) => {
     try {
       const response = await fetch(
@@ -267,6 +268,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             email,
             password,
             phoneNumber,
+            city,
           }),
         }
       );
@@ -302,6 +304,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             userData.canCreateProperties ??
             (userData.role === "Agent" || userData.role === "Admin"),
         });
+        // Store userId
+        await AsyncStorage.setItem("userId", userData.id.toString());
       }
     } catch (error: any) {
       console.error("Registration error:", error);

@@ -61,6 +61,11 @@ const ChatFloatingButton: React.FC<ChatFloatingButtonProps> = ({
     loadConversations();
   }, []);
 
+  // Hide when property comparison is active
+  if (comparisonList.length > 0) {
+    return null;
+  }
+
   return (
     <Animated.View
       style={{

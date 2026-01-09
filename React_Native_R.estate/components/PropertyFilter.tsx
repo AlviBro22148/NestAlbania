@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import CityPicker from "./CityPicker";
 
 // FIXED: Match backend DTO property names (PascalCase)
 export interface PropertyFilters {
@@ -95,6 +96,7 @@ export default function FilterModal({
   ];
 
   const [filters, setFilters] = useState<PropertyFilters>(initialFilters);
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
 
   const updateFilter = (key: keyof PropertyFilters, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -242,12 +244,17 @@ export default function FilterModal({
             <Text className="text-lg font-rubik-bold text-black-300 mb-3">
               📍 {t("properties.location")}
             </Text>
-            <TextInput
-              placeholder={t("properties.city")}
-              value={filters.City}
-              onChangeText={(text) => updateFilter("City", text)}
-              className="bg-gray-100 rounded-lg px-4 py-3 mb-3 font-rubik"
-            />
+            <TouchableOpacity
+              onPress={() => setCityPickerVisible(true)}
+              className="bg-gray-100 rounded-lg px-4 py-3 mb-3 flex-row justify-between items-center"
+            >
+              <Text
+                className={`font-rubik ${filters.City ? "text-black-300" : "text-gray-400"}`}
+              >
+                {filters.City || t("properties.selectCity") || "Select City"}
+              </Text>
+              <Text className="text-gray-400">▼</Text>
+            </TouchableOpacity>
             <TextInput
               placeholder={t("properties.neighborhood")}
               value={filters.Neighborhood}
@@ -674,6 +681,14 @@ export default function FilterModal({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* City Picker Modal */}
+      <CityPicker
+        visible={cityPickerVisible}
+        selectedCity={filters.City || ""}
+        onClose={() => setCityPickerVisible(false)}
+        onSelectCity={(city) => updateFilter("City", city)}
+      />
     </Modal>
   );
 }

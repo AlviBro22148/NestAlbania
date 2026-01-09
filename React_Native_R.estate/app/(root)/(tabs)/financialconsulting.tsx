@@ -1,6 +1,7 @@
 import CustomButton from "@/components/CustomButton";
 import InputModal from "@/components/InputModal";
 import icons from "@/constants/icons";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import { router } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +19,7 @@ interface MortgageResult {
 
 export default function FinancialConsultingScreen() {
   const { t } = useTranslation();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
 
   // Calculator inputs
   const [propertyPrice, setPropertyPrice] = useState("");
@@ -125,7 +127,7 @@ export default function FinancialConsultingScreen() {
       >
         {/* Header */}
         <View className="flex flex-row items-center justify-between mt-5">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Image source={icons.backArrow} className="w-6 h-6" />
           </TouchableOpacity>
           <Text className="text-xl font-rubik-bold">

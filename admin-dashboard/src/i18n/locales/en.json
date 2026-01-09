@@ -115,7 +115,16 @@
     "totalFeedback": "Total Feedback",
     "pending": "Pending",
     "inReview": "In Review",
-    "resolved": "Resolved"
+    "resolved": "Resolved",
+    "propertiesRentedPerMonth": "Properties Rented per Month (Last 12 Months)",
+    "propertiesRented": "Properties Rented",
+    "avgRentPerMonth": "Average Rent per Month",
+    "avgRent": "Average Rent",
+    "topCitiesRented": "Top 10 Cities (Properties Rented)",
+    "topPropertyTypesByRentals": "Top 5 Property Types by Rental Volume",
+    "annualRentalVolume": "Annual Rental Volume",
+    "avgDaysToRent": "Average Days to Rent",
+    "topAgentsRented": "Top 5 Agents (Properties Rented)"
   },
   "properties": {
     "title": "Properties",
@@ -259,6 +268,7 @@
     "bannedUsers": "Banned Users",
     "adminUsers": "Administrators",
     "roleAdmin": "Administrator",
+    "roleCityAdmin": "City Admin",
     "roleAgent": "Agent",
     "roleUser": "User",
     "statusActive": "Active",

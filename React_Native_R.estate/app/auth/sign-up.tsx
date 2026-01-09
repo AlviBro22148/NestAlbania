@@ -1,4 +1,6 @@
+import CityPicker from "@/components/CityPicker";
 import InputModal from "@/components/InputModal";
+import PreferencesModal from "@/components/PreferencesModal";
 import images from "@/constants/images";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
@@ -24,12 +26,17 @@ export default function SignUp() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Input Modal states
   const [modalVisible, setModalVisible] = useState(false);
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState<any>(null);
   const [tempValue, setTempValue] = useState("");
+
+  // Preferences modal state
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
 
   const openInputModal = (
     field: string,
@@ -62,11 +69,11 @@ export default function SignUp() {
 
   const handleRegister = async () => {
     // Validation
-    if (!username || !email || !password || !confirmPassword || !phoneNumber) {
+    if (!username || !email || !password || !confirmPassword || !phoneNumber || !city) {
       showAlert({
         type: "error",
         title: t("common.error"),
-        message: "Please fill in all fields",
+        message: t("auth.fillAllFields"),
       });
       return;
     }
@@ -109,19 +116,10 @@ export default function SignUp() {
 
     try {
       setLoading(true);
-      await register(username, email, password, phoneNumber);
+      await register(username, email, password, phoneNumber, city);
 
-      showAlert({
-        type: "success",
-        title: t("common.success"),
-        message: "Account created successfully!",
-        buttons: [
-          {
-            text: "OK",
-            onPress: () => router.replace("/(root)/(tabs)"),
-          },
-        ],
-      });
+      // Show preferences modal after successful registration
+      setShowPreferencesModal(true);
     } catch (error: any) {
       showAlert({
         type: "error",
@@ -131,6 +129,19 @@ export default function SignUp() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle preferences completion or skip
+  const handlePreferencesComplete = () => {
+    setShowPreferencesModal(false);
+    showToast(t("auth.registrationSuccess"), "success");
+    router.replace("/(root)/(tabs)");
+  };
+
+  const handlePreferencesSkip = () => {
+    setShowPreferencesModal(false);
+    showToast(t("auth.registrationSuccess"), "success");
+    router.replace("/(root)/(tabs)");
   };
 
   return (
@@ -231,6 +242,24 @@ export default function SignUp() {
                 className={`font-rubik-regular ${phoneNumber ? "text-black" : "text-gray-400"}`}
               >
                 {phoneNumber || t("placeholders.enterPhone")}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* City Selection */}
+          <TouchableOpacity
+            onPress={() => setCityPickerVisible(true)}
+            disabled={loading}
+            className="mb-4"
+          >
+            <Text className="text-sm font-rubik-medium mb-2">
+              {t("cities.city")}
+            </Text>
+            <View className="border border-gray-300 rounded-lg px-4 py-3">
+              <Text
+                className={`font-rubik-regular ${city ? "text-black" : "text-gray-400"}`}
+              >
+                {city || t("cities.selectCity")}
               </Text>
             </View>
           </TouchableOpacity>
@@ -341,6 +370,21 @@ export default function SignUp() {
           secureTextEntry={modalConfig.isSecure}
         />
       )}
+
+      {/* City Picker Modal */}
+      <CityPicker
+        visible={cityPickerVisible}
+        selectedCity={city}
+        onClose={() => setCityPickerVisible(false)}
+        onSelectCity={setCity}
+      />
+
+      {/* Preferences Modal - shown after registration */}
+      <PreferencesModal
+        visible={showPreferencesModal}
+        onComplete={handlePreferencesComplete}
+        onSkip={handlePreferencesSkip}
+      />
     </SafeAreaView>
   );
 }

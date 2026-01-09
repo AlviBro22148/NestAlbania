@@ -78,7 +78,7 @@ export const LoginPage = ({ onLogin }) => {
 
           {/* Bottom - Copyright */}
           <div className="text-sm text-white/60">
-            © 2024 NestAlbania. {t('auth.allRightsReserved', 'All rights reserved.')}
+            © 2026 NestAlbania. {t('auth.allRightsReserved', 'All rights reserved.')}
           </div>
         </div>
       </div>

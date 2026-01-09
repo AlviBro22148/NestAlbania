@@ -2,6 +2,7 @@ import CustomButton from "@/components/CustomButton";
 import InputModal from "@/components/InputModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -32,6 +33,7 @@ export default function HelpCenterScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [subject, setSubject] = useState("");
@@ -213,7 +215,7 @@ export default function HelpCenterScreen() {
       >
         {/* Header */}
         <View className="flex flex-row items-center justify-between mt-5">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Image source={icons.backArrow} className="w-6 h-6" />
           </TouchableOpacity>
           <Text className="text-xl font-rubik-bold">

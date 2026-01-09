@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Building2, Users, TrendingUp, DollarSign, Calendar, Award, MessageSquare, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Building2, Users, TrendingUp, DollarSign, Calendar, Award, MessageSquare, FileText, ArrowUpRight, ArrowDownRight, Key, Home, MapPin } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -18,7 +18,7 @@ const CHART_COLORS = {
   dark: ['#818cf8', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#22d3ee', '#a3e635', '#f472b6']
 };
 
-export const DashboardPage = ({ token }) => {
+export const DashboardPage = ({ token, auth }) => {
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [stats, setStats] = useState(null);
@@ -27,6 +27,10 @@ export const DashboardPage = ({ token }) => {
   const [userGrowth, setUserGrowth] = useState([]);
   const [propertyTypeData, setPropertyTypeData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Check if user is CityAdmin
+  const isCityAdmin = auth?.role === 'CityAdmin';
+  const adminCity = auth?.city;
 
   const COLORS = isDark ? CHART_COLORS.dark : CHART_COLORS.light;
 
@@ -234,8 +238,20 @@ export const DashboardPage = ({ token }) => {
     <div className="p-6 animate-fade-in">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('dashboard.summary')}</h1>
-        <p className="text-[var(--text-secondary)] mt-1">{t('dashboard.welcomeBack', 'Welcome back! Here\'s what\'s happening.')}</p>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('dashboard.summary')}</h1>
+          {isCityAdmin && adminCity && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-400 text-sm font-medium">
+              <MapPin className="w-4 h-4" />
+              {adminCity}
+            </span>
+          )}
+        </div>
+        <p className="text-[var(--text-secondary)] mt-1">
+          {isCityAdmin
+            ? t('dashboard.cityAdminWelcome', `Managing properties and users in ${adminCity}`, { city: adminCity })
+            : t('dashboard.welcomeBack', 'Welcome back! Here\'s what\'s happening.')}
+        </p>
       </div>
 
       {/* Stats Cards */}
@@ -407,7 +423,134 @@ export const DashboardPage = ({ token }) => {
             </Card>
           </div>
 
-          {/* Row 5: User Growth & Property Types */}
+          {/* Row 5: Rentals per Month */}
+          {charts.propertiesRentedPerMonth && charts.propertiesRentedPerMonth.length > 0 && (
+            <Card padding="md" className="mb-6 stagger-item">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Key className="w-5 h-5 text-purple-500" />
+                  <CardTitle>{t('dashboard.propertiesRentedPerMonth')}</CardTitle>
+                </div>
+              </CardHeader>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={charts.propertiesRentedPerMonth}>
+                  <defs>
+                    <linearGradient id="colorRented" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS[4]} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={COLORS[4]} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                  <XAxis dataKey="month" tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                  <YAxis tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke={COLORS[4]}
+                    strokeWidth={2}
+                    fill="url(#colorRented)"
+                    name={t('dashboard.propertiesRented')}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Card>
+          )}
+
+          {/* Row 6: Rental Stats - Avg Rent & Cities */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {charts.avgRentPerMonth && charts.avgRentPerMonth.length > 0 && (
+              <Card padding="md" className="stagger-item">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-purple-500" />
+                    <CardTitle>{t('dashboard.avgRentPerMonth')}</CardTitle>
+                  </div>
+                </CardHeader>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={charts.avgRentPerMonth}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                    <XAxis dataKey="month" tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                    <YAxis tick={{ fill: chartTheme.text, fontSize: 12 }} tickFormatter={(v) => `$${v.toLocaleString()}`} />
+                    <Tooltip content={<CustomTooltip />} formatter={(value) => `$${Number(value).toLocaleString()}`} />
+                    <Line type="monotone" dataKey="avgRent" stroke={COLORS[4]} strokeWidth={2} dot={{ fill: COLORS[4] }} name={t('dashboard.avgRent')} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+
+            {charts.propertiesRentedByCity && charts.propertiesRentedByCity.length > 0 && (
+              <Card padding="md" className="stagger-item">
+                <CardHeader>
+                  <CardTitle>{t('dashboard.topCitiesRented')}</CardTitle>
+                </CardHeader>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={charts.propertiesRentedByCity} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                    <XAxis type="number" tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                    <YAxis type="category" dataKey="city" width={100} tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="count" fill={COLORS[4]} radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+          </div>
+
+          {/* Row 7: Rental Volume & Days to Rent */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            {charts.topPropertyTypesByRentalVolume && charts.topPropertyTypesByRentalVolume.length > 0 && (
+              <Card padding="md" className="lg:col-span-2 stagger-item">
+                <CardHeader>
+                  <CardTitle>{t('dashboard.topPropertyTypesByRentals')}</CardTitle>
+                </CardHeader>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={charts.topPropertyTypesByRentalVolume?.map(item => ({
+                    ...item,
+                    translatedType: translatePropertyType(item.propertyType)
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                    <XAxis dataKey="translatedType" angle={-45} textAnchor="end" height={80} tick={{ fill: chartTheme.text, fontSize: 11 }} />
+                    <YAxis tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                    <Tooltip content={<CustomTooltip />} formatter={(value) => `$${Number(value).toLocaleString()}/yr`} />
+                    <Bar dataKey="totalRentalVolume" fill={COLORS[4]} radius={[4, 4, 0, 0]} name={t('dashboard.annualRentalVolume')} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+
+            <Card padding="md" className="flex flex-col items-center justify-center stagger-item">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg">
+                <Key className="w-10 h-10 text-white" />
+              </div>
+              <p className="text-[var(--text-secondary)] text-sm mb-2">{t('dashboard.avgDaysToRent')}</p>
+              <p className="text-5xl font-bold text-[var(--text-primary)]">{charts.avgDaysToRent || 0}</p>
+              <p className="text-[var(--text-muted)] text-sm mt-1">{t('dashboard.days')}</p>
+            </Card>
+          </div>
+
+          {/* Row 8: Top Agents - Rentals */}
+          {charts.topAgentsRented && charts.topAgentsRented.length > 0 && (
+            <Card padding="md" className="mb-6 stagger-item">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-purple-500" />
+                  <CardTitle>{t('dashboard.topAgentsRented')}</CardTitle>
+                </div>
+              </CardHeader>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={charts.topAgentsRented}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                  <XAxis dataKey="username" tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                  <YAxis tick={{ fill: chartTheme.text, fontSize: 12 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="rentedCount" fill={COLORS[4]} radius={[4, 4, 0, 0]} name={t('dashboard.propertiesRented')} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          )}
+
+          {/* Row 9: User Growth & Property Types */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {userGrowth.length > 0 && (
               <Card padding="md" className="stagger-item">

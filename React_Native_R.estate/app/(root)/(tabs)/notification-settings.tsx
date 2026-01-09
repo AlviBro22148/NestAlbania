@@ -1,6 +1,7 @@
 import CustomButton from "@/components/CustomButton";
 import InputModal from "@/components/InputModal";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -29,6 +30,7 @@ interface NotificationPreferences {
 export default function NotificationSettingsScreen() {
   const { t } = useTranslation();
   const { showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<NotificationPreferences>({
@@ -113,7 +115,7 @@ export default function NotificationSettingsScreen() {
       >
         {/* Header */}
         <View className="flex flex-row items-center justify-between mt-5">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Image source={icons.backArrow} className="w-6 h-6" />
           </TouchableOpacity>
           <Text className="text-xl font-rubik-bold">

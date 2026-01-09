@@ -87,6 +87,13 @@
     "english": "English",
     "albanian": "Albanian"
   },
+
+  "cities": {
+    "city": "City",
+    "selectCity": "Select Your City",
+    "searchCity": "Search city...",
+    "noResults": "No cities found"
+  },
   
   "auth": {
     "login": "Login",
@@ -107,7 +114,9 @@
     "accountCreated": "Account created successfully!",
     "phoneNumber": "Phone Number",
     "joinNestAlbania": "Join NestAlbania and find your dream property",
-    "confirmPassword": "Confirm Password"
+    "confirmPassword": "Confirm Password",
+    "fillAllFields": "Please fill in all fields",
+    "registrationSuccess": "Account created successfully! Welcome to NestAlbania"
   },
 
   "banned": {
@@ -268,6 +277,7 @@
     "fullAddress": "Full Address",
     "describeProperty": "Describe your property in detail...",
     "fillDetailsToStart": "Fill in the details to get started",
+    "month": "month",
   "addUpTo10Images": "Add up to 10 stunning images",
   "noLikedProperties": "No Liked Properties",
   "likedPropertiesDescription": "Properties you like will appear here",
@@ -313,7 +323,20 @@
     "Available": "Available",
     "Rented": "Rented",
     "OnRent": "On Rent",
-    "OnSale": "On Sale"
+    "OnSale": "On Sale",
+    "selectCity": "Select City",
+    "monthlyRent": "Monthly Rent",
+    "securityDeposit": "Security Deposit",
+    "leaseTermMonths": "Lease Term (Months)",
+    "utilitiesIncluded": "Utilities Included",
+    "furnished": "Furnished",
+    "rentalDetails": "Rental Details",
+    "leaseTerm": "Lease Term",
+    "months": "months",
+    "furnishedStatus": "Furnished Status",
+    "unfurnished": "Unfurnished",
+    "semiFurnished": "Semi-Furnished",
+    "fullyFurnished": "Fully Furnished"
   },
 
   "editProperty": {
@@ -323,6 +346,7 @@
   
   "filters": {
     "filters": "Filters",
+    "selectCity": "Select City",
     "listingType": "Listing Type",
     "forSale": "For Sale",
     "forRent": "For Rent",
@@ -947,6 +971,63 @@
     "feedbackNotification": {
       "resolvedTitle": "Feedback Resolved",
       "resolvedMessage": "Thank you! Your feedback has been reviewed and resolved. We truly appreciate you taking the time to help us improve NestAlbania!"
+    },
+
+    "preferences": {
+      "yourChoice": "Your Choice",
+      "yourPreferences": "Your Preferences",
+      "personalizedForYou": "Properties personalized based on your preferences",
+      "setPreferencesToPersonalize": "Set your preferences to see personalized listings",
+      "editPreferences": "Edit Preferences",
+      "setPreferences": "Set Preferences",
+      "noMatchingProperties": "No properties match your preferences yet",
+      "setPreferencesToSee": "Set your preferences to see personalized property recommendations",
+      "setNow": "Set Preferences Now",
+      "showingProperties": "Showing {{shown}} of {{total}} properties",
+      "welcomeTitle": "Tell us what you're looking for",
+      "welcomeMessage": "Welcome to NestAlbania! Find your perfect property.",
+      "whatLookingFor": "What are you looking for?",
+      "selectPropertyTypes": "Select the types of properties you're interested in",
+      "lookingTo": "Looking to",
+      "sale": "Buy",
+      "rent": "Rent",
+      "both": "Both",
+      "propertyTypes": "Property Types",
+      "roomPreferences": "Room Preferences",
+      "selectRoomCount": "How many bedrooms and bathrooms do you need?",
+      "bedrooms": "Bedrooms",
+      "bathrooms": "Bathrooms",
+      "min": "Min",
+      "max": "Max",
+      "budgetLocation": "Budget & Location",
+      "setPriceAndCities": "Set your price range and preferred cities",
+      "priceRange": "Price Range",
+      "minPrice": "Min Price",
+      "maxPrice": "Max Price",
+      "noLimit": "No limit",
+      "preferredCities": "Preferred Cities",
+      "amenities": "Amenities",
+      "selectAmenities": "Select your must-have amenities",
+      "garage": "Garage",
+      "petFriendly": "Pet Friendly",
+      "pool": "Swimming Pool",
+      "gym": "Gym / Fitness Center",
+      "airConditioning": "Air Conditioning",
+      "greenHomes": "Eco-Friendly Homes",
+      "skip": "Skip",
+      "back": "Back",
+      "next": "Next",
+      "save": "Save Preferences",
+      "preferencesSaved": "Preferences saved successfully!",
+      "preferencesCleared": "Preferences cleared",
+      "preferencesDescription": "Set your property preferences to get personalized recommendations on the home screen.",
+      "notSet": "Not set",
+      "clearPreferencesTitle": "Clear Preferences?",
+      "clearPreferencesMessage": "This will remove all your saved preferences. You can always set them again later.",
+      "clear": "Clear",
+      "clearPreferences": "Clear Preferences",
+      "noPreferencesTitle": "No Preferences Set",
+      "noPreferencesMessage": "Set your property preferences to get personalized recommendations and see properties that match your criteria."
     }
 
     }

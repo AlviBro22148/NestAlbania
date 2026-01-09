@@ -1,5 +1,6 @@
 import { useAlert } from "@/contexts/AlertContext";
 import icons from "@/constants/icons";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useCallback, useState } from "react";
@@ -45,6 +46,7 @@ export default function ReportDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/my-reports");
 
   const [report, setReport] = useState<Report | undefined>();
   const [loading, setLoading] = useState(true);
@@ -210,7 +212,7 @@ export default function ReportDetailScreen() {
           {t("reports.reportNotFound")}
         </Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           className="mt-6 bg-primary-300 px-6 py-3 rounded-xl"
         >
           <Text className="text-white font-rubik-bold">{t("common.back")}</Text>
@@ -233,7 +235,7 @@ export default function ReportDetailScreen() {
         {/* Header */}
         <View className="bg-white px-5 py-4 border-b border-gray-200">
           <View className="flex-row items-center justify-between">
-            <TouchableOpacity onPress={() => router.back()} className="mr-3">
+            <TouchableOpacity onPress={handleBack} className="mr-3">
               <Image source={icons.backArrow} className="w-6 h-6" />
             </TouchableOpacity>
             <View className="flex-1">

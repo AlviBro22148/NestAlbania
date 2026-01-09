@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { router } from 'expo-router';
 
-const API_URL = "http://192.168.1.6:5175";
+const API_URL = "http://192.168.100.91:5175";
 
 // Create axios instance
 const api = axios.create({
@@ -15,10 +15,10 @@ const api = axios.create({
 
 // Track if we're currently refreshing to avoid multiple refresh attempts
 let isRefreshing = false;
- let failedQueue: {
+let failedQueue: {
   resolve: (value?: unknown) => void;
-   reject: (reason?: any) => void;
- }[] = [];
+  reject: (reason?: any) => void;
+}[] = [];
 
 const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -60,8 +60,8 @@ api.interceptors.response.use(
 
     // If we've already retried this request, don't try again
     if (originalRequest._retry) {
-      await handleLogout();
-      return Promise.reject(error);
+      await handleSessionExpired();
+      return Promise.resolve({ data: null });
     }
 
     // If already refreshing, queue this request
@@ -86,11 +86,10 @@ api.interceptors.response.use(
       const userId = await AsyncStorage.getItem('userId');
 
       if (!refreshToken || !userId) {
-        // No tokens available - silently logout without throwing errors
+        // No tokens available - handle session expiration and redirect
         processQueue(null, null);
         isRefreshing = false;
-        await handleLogout();
-        // Return a resolved promise to prevent error spam in console
+        await handleSessionExpired();
         return Promise.resolve({ data: null });
       }
 
@@ -122,28 +121,28 @@ api.interceptors.response.use(
     } catch (refreshError) {
       processQueue(null, null);
       isRefreshing = false;
-      await handleLogout();
-      // Return resolved promise instead of rejecting to prevent error spam
+      await handleSessionExpired();
       return Promise.resolve({ data: null });
-    } 
+    }
   }
 );
 
-// Centralized logout handler
-const handleLogout = async () => {
+// Handle session expiration - clear tokens and redirect to sign-in
+const handleSessionExpired = async () => {
   try {
     await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userId']);
-    // Redirect to sign-up page
-    router.replace('/auth/sign-up');
+    
+    // Redirect to sign-in page
+    // Use replace to prevent going back to authenticated pages
+    router.replace('/auth/sign-in');
   } catch (error) {
-    // Silently handle errors during logout
+    console.error('Error during session cleanup:', error);
   }
 };
 
 // Export utility functions
 export const logout = async () => {
-  await handleLogout();
-  // Return a flag so the app knows to navigate to sign-in
+  await handleSessionExpired();
   return true;
 };
 
@@ -157,4 +156,3 @@ export const getToken = async (): Promise<string | null> => {
 };
 
 export default api;
-

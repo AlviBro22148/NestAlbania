@@ -2,6 +2,7 @@ import CustomButton from "@/components/CustomButton";
 import icons from "@/constants/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
@@ -45,6 +46,7 @@ interface ArticleForm {
 export default function AdminBlogManagerScreen() {
   const { user } = useAuth();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [articles, setArticles] = useState<BlogArticle[]>([]);
@@ -71,7 +73,7 @@ export default function AdminBlogManagerScreen() {
         title: "Access Denied",
         message: "You must be an admin to access this page",
       });
-      router.back();
+      handleBack();
       return;
     }
     loadArticles();

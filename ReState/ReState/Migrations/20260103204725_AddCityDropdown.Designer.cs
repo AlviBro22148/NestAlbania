@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ReState.Data;
@@ -12,9 +13,11 @@ using ReState.Data;
 namespace ReState.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260103204725_AddCityDropdown")]
+    partial class AddCityDropdown
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -793,88 +796,6 @@ namespace ReState.Migrations
                     b.ToTable("UserFeedback");
                 });
 
-            modelBuilder.Entity("ReState.Entities.UserPreference", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ListingType")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<decimal?>("MaxArea")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("MaxBathrooms")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("MaxBedrooms")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("MaxPrice")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("MinArea")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("MinBathrooms")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("MinBedrooms")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("MinEcoScore")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("MinPrice")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("PreferredCities")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("PreferredPropertyTypes")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<bool?>("PrefersGreenHomes")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool?>("WantsAirConditioning")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("WantsGarage")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("WantsGym")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("WantsPetFriendly")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool?>("WantsPool")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("UserPreferences");
-                });
-
             modelBuilder.Entity("ReState.Models.LocalService", b =>
                 {
                     b.Property<int>("Id")
@@ -1317,17 +1238,6 @@ namespace ReState.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("ReState.Entities.UserPreference", b =>
-                {
-                    b.HasOne("ReState.Entities.User", "User")
-                        .WithOne("Preference")
-                        .HasForeignKey("ReState.Entities.UserPreference", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("ReState.Models.Testimonial", b =>
                 {
                     b.HasOne("ReState.Entities.Property", "Property")
@@ -1401,8 +1311,6 @@ namespace ReState.Migrations
 
             modelBuilder.Entity("ReState.Entities.User", b =>
                 {
-                    b.Navigation("Preference");
-
                     b.Navigation("Properties");
                 });
 #pragma warning restore 612, 618

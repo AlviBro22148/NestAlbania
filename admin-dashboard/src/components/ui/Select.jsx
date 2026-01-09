@@ -3,6 +3,7 @@ import { ChevronDown, Check, X } from 'lucide-react';
 
 export const Select = forwardRef(({
   label,
+  name,
   options = [],
   value,
   onChange,
@@ -51,8 +52,8 @@ export const Select = forwardRef(({
   const handleSelect = (option) => {
     // Create a synthetic event-like object for compatibility
     const syntheticEvent = {
-      target: { value: option.value },
-      currentTarget: { value: option.value },
+      target: { name, value: option.value },
+      currentTarget: { name, value: option.value },
     };
     onChange?.(syntheticEvent);
     setIsOpen(false);
@@ -62,8 +63,8 @@ export const Select = forwardRef(({
   const handleClear = (e) => {
     e.stopPropagation();
     const syntheticEvent = {
-      target: { value: '' },
-      currentTarget: { value: '' },
+      target: { name, value: '' },
+      currentTarget: { name, value: '' },
     };
     onChange?.(syntheticEvent);
   };

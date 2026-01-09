@@ -89,6 +89,14 @@ export const PropertyCreatePage = ({ token, onBack, onSuccess }) => {
   const leedLevels = ['', 'Certified', 'Silver', 'Gold', 'Platinum'];
   const furnishedOptions = ['Unfurnished', 'Semi-Furnished', 'Fully-Furnished'];
 
+  // Albanian cities list
+  const albanianCities = [
+    'Tirana', 'Durrës', 'Vlorë', 'Elbasan', 'Shkodër', 'Fier', 'Korçë', 'Berat',
+    'Lezhë', 'Gjirokastër', 'Kukës', 'Peshkopi', 'Sarandë', 'Lushnjë', 'Pogradec',
+    'Kavajë', 'Krujë', 'Laç', 'Kuçovë', 'Burrel', 'Patos', 'Librazhd', 'Shijak',
+    'Kamëz', 'Tepelenë'
+  ];
+
   const sections = [
     { id: 'basic', label: t('properties.basicInfo'), icon: Home },
     { id: 'location', label: t('properties.location') || 'Location', icon: MapPin },
@@ -362,16 +370,20 @@ export const PropertyCreatePage = ({ token, onBack, onSuccess }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                  {t('properties.city')}
+                  {t('properties.city')} *
                 </label>
-                <input
-                  type="text"
+                <select
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  placeholder="Tirana"
-                  className="w-full px-4 py-2 border border-[var(--border-primary)] bg-[var(--bg-input)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder:text-[var(--text-muted)]"
-                />
+                  className="w-full px-4 py-2 border border-[var(--border-primary)] bg-[var(--bg-input)] text-[var(--text-primary)] rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">{t('properties.selectCity', 'Select city')}</option>
+                  {albanianCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

@@ -1,3 +1,4 @@
+import CityPicker from "@/components/CityPicker";
 import InputModal from "@/components/InputModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
@@ -108,6 +109,7 @@ const CreateProperty = () => {
   const { t } = useTranslation();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState<{
     field: keyof PropertyForm;
     title: string;
@@ -707,23 +709,17 @@ const CreateProperty = () => {
 
             <View className="flex-row gap-3 mb-4">
               <TouchableOpacity
-                onPress={() =>
-                  openInputModal(
-                    "city",
-                    t("properties.city"),
-                    t("placeholders.enterCity")
-                  )
-                }
+                onPress={() => setCityPickerVisible(true)}
                 className="flex-1"
               >
                 <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
-                  {t("properties.city")}
+                  {t("properties.city")} *
                 </Text>
                 <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
                   <Text
                     className={`font-rubik text-base ${form.city ? "text-black" : "text-gray-400"}`}
                   >
-                    {form.city || t("placeholders.enterCity")}
+                    {form.city || t("cities.selectCity")}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1151,6 +1147,13 @@ const CreateProperty = () => {
           numberOfLines={modalConfig.multiline ? 6 : 1}
         />
       )}
+
+      <CityPicker
+        visible={cityPickerVisible}
+        selectedCity={form.city}
+        onClose={() => setCityPickerVisible(false)}
+        onSelectCity={(city) => setForm({ ...form, city })}
+      />
     </>
   );
 };

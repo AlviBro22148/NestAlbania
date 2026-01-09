@@ -140,6 +140,7 @@ const TabsLayout = () => {
         <Tabs.Screen name="my-reports" options={{ href: null }} />
         <Tabs.Screen name="chats" options={{ href: null }} />
         <Tabs.Screen name="testimonials" options={{ href: null }} />
+        <Tabs.Screen name="edit-preferences" options={{ href: null }} />
       </Tabs>
 
       {/* Floating Add Property Button - Hide when comparison is active OR on hidden routes */}

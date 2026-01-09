@@ -16,5 +16,14 @@ export const useAuthStore = () => {
     setAuth(null);
   };
 
-  return { auth, login, logout };
+  // Helper to check if user is CityAdmin
+  const isCityAdmin = auth?.role === 'CityAdmin';
+
+  // Helper to check if user is full Admin
+  const isAdmin = auth?.role === 'Admin';
+
+  // Get the city for CityAdmin
+  const adminCity = auth?.city || null;
+
+  return { auth, login, logout, isCityAdmin, isAdmin, adminCity };
 };

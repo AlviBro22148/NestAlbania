@@ -343,6 +343,9 @@ export const PropertiesPage = ({ token, onViewProperty, onCreateProperty }) => {
                     {t('properties.type', 'Type')}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                    {t('properties.city', 'City')}
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
                     {t('properties.price', 'Price')}
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
@@ -371,6 +374,7 @@ export const PropertiesPage = ({ token, onViewProperty, onCreateProperty }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
                       <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
                       <td className="px-6 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
                       <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
@@ -379,7 +383,7 @@ export const PropertiesPage = ({ token, onViewProperty, onCreateProperty }) => {
                   ))
                 ) : filteredProperties.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-16 text-center">
+                    <td colSpan="7" className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center">
                         <div className="w-16 h-16 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center mb-4">
                           <Building2 className="w-8 h-8 text-[var(--text-muted)]" />
@@ -433,6 +437,16 @@ export const PropertiesPage = ({ token, onViewProperty, onCreateProperty }) => {
                         <Badge variant="outline">
                           {property.propertyType || 'N/A'}
                         </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        {property.city ? (
+                          <div className="flex items-center gap-1 text-sm text-[var(--text-secondary)]">
+                            <MapPin className="w-3 h-3" />
+                            {property.city}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-[var(--text-muted)]">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className="font-semibold text-[var(--text-primary)]">

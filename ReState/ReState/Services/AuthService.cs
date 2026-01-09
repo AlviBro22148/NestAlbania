@@ -36,8 +36,8 @@ namespace ReState.Services
             if (user is null)
                 return null;
 
-            // Check if user is admin
-            if (user.Role != "Admin")
+            // Check if user is admin or city admin
+            if (user.Role != "Admin" && user.Role != "CityAdmin")
                 return null;
 
             // Verify password hash
@@ -52,7 +52,10 @@ namespace ReState.Services
             {
                 AccessToken = CreateToken(user),
                 RefreshToken = await GenerateAndSaveRefreshToken(user),
-                Requires2FA = false
+                Requires2FA = false,
+                Role = user.Role,
+                City = user.City,
+                Username = user.Username
             };
 
             return response;
@@ -209,7 +212,8 @@ namespace ReState.Services
             {
                 Username = request.Username,
                 Email = request.Email ?? string.Empty,
-                PhoneNumber = request.PhoneNumber ?? string.Empty, 
+                PhoneNumber = request.PhoneNumber ?? string.Empty,
+                City = request.City,
                 Role = "User",
             };
 
@@ -235,6 +239,12 @@ namespace ReState.Services
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role)
             };
+
+            // Add city claim for CityAdmin users
+            if (user.Role == "CityAdmin" && !string.IsNullOrEmpty(user.City))
+            {
+                claims.Add(new Claim("city", user.City));
+            }
 
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_configuration["AppSettings:Token"]!));

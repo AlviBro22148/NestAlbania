@@ -1,6 +1,7 @@
 import CustomButton from "@/components/CustomButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -22,6 +23,7 @@ export default function SecurityScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
   const [loading, setLoading] = useState(true);
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -288,7 +290,7 @@ export default function SecurityScreen() {
         contentContainerClassName="pb-32 px-7"
       >
         <View className="flex flex-row items-center justify-between mt-5">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Image source={icons.backArrow} className="w-6 h-6" />
           </TouchableOpacity>
           <Text className="text-xl font-rubik-bold">{t("security.title")}</Text>

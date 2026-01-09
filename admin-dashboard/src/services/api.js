@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://192.168.1.6:5175';
+const API_BASE_URL = 'http://192.168.100.91:5175';
 
 // Helper function to handle API responses and check for auth errors
 const handleResponse = async (response) => {
@@ -98,6 +98,27 @@ export const api = {
 
   promoteToAdmin: async (token, id) => {
     return authFetch(`${API_BASE_URL}/api/Properties/admin/make-admin/${id}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+  },
+
+  makeCityAdmin: async (token, id, city) => {
+    return authFetch(`${API_BASE_URL}/api/auth/admin/make-city-admin/${id}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ city })
+    });
+  },
+
+  revokeCityAdmin: async (token, id) => {
+    return authFetch(`${API_BASE_URL}/api/auth/admin/revoke-city-admin/${id}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

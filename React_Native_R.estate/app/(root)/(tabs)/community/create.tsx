@@ -1,5 +1,6 @@
 import InputModal from "@/components/InputModal";
 import { useAlert } from "@/contexts/AlertContext";
+import { useBackNavigation } from "@/hooks/useBackNavigation";
 import api from "@/lib/axios-config";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -17,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const CreatePostScreen = () => {
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
+  const handleBack = useBackNavigation("/(root)/(tabs)/community");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("Tips");
@@ -82,7 +84,7 @@ const CreatePostScreen = () => {
       });
 
       showToast("Post created successfully!", "success");
-      router.back();
+      handleBack();
     } catch (error: any) {
       console.error("Error creating post:", error);
       showAlert({
@@ -100,7 +102,7 @@ const CreatePostScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="px-6 py-4 flex-row items-center justify-between border-b border-gray-100">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={handleBack}>
             <Ionicons name="close" size={28} color="#191D31" />
           </TouchableOpacity>
           <Text className="text-xl font-rubik-bold text-black-300">

@@ -253,6 +253,12 @@ export default function ProfileScreen() {
       tintColor: "#FF0000",
     },
     {
+      icon: icons.filter,
+      title: t("preferences.yourPreferences"),
+      onPress: () => router.push("/(root)/(tabs)/edit-preferences"),
+      tintColor: "#8B5CF6",
+    },
+    {
       icon: icons.chart,
       title: t("profile.myReports"),
       onPress: () => router.push("/my-reports"),
@@ -387,32 +393,38 @@ export default function ProfileScreen() {
                 className={`px-4 py-1 rounded-full ${
                   user?.role === "Admin"
                     ? "bg-red-100"
-                    : user?.role === "Agent"
-                      ? "bg-blue-100"
-                      : "bg-gray-100"
+                    : user?.role === "CityAdmin"
+                      ? "bg-orange-100"
+                      : user?.role === "Agent"
+                        ? "bg-blue-100"
+                        : "bg-gray-100"
                 }`}
               >
                 <Text
                   className={`font-rubik-semibold text-sm ${
                     user?.role === "Admin"
                       ? "text-red-700"
-                      : user?.role === "Agent"
-                        ? "text-blue-700"
-                        : "text-gray-700"
+                      : user?.role === "CityAdmin"
+                        ? "text-orange-700"
+                        : user?.role === "Agent"
+                          ? "text-blue-700"
+                          : "text-gray-700"
                   }`}
                 >
                   {user?.role === "Admin"
                     ? t("profile.roleAdmin") || "Administrator"
-                    : user?.role === "Agent"
-                      ? t("profile.roleAgent") || "Agent"
-                      : t("profile.roleUser") || "User"}
+                    : user?.role === "CityAdmin"
+                      ? `${user?.city || "City"} Admin`
+                      : user?.role === "Agent"
+                        ? t("profile.roleAgent") || "Agent"
+                        : t("profile.roleUser") || "User"}
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Become an Agent Button - Only for Users */}
+        {/* Become an Agent Button - Only for Users (not Admin, CityAdmin, or Agent) */}
         {user?.role === "User" && (
           <View className="mt-6 px-2">
             <TouchableOpacity
