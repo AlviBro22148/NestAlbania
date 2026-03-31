@@ -126,6 +126,14 @@ builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 builder.Services.AddScoped<IPropertyService, PropertyService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IPushNotificationService, PushNotificationService>();
+
+// Add HttpClient for Expo Push Notifications
+builder.Services.AddHttpClient("ExpoPush", client =>
+{
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.DefaultRequestHeaders.Add("Accept-Encoding", "gzip, deflate");
+});
 
 builder.Services.AddRouting(options => {
     options.LowercaseUrls = true;

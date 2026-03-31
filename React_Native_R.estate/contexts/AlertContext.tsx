@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback } from "react";
 import CustomAlert from "@/components/CustomAlert";
 import ToastNotification from "@/components/ToastNotification";
 
@@ -46,11 +46,11 @@ export const AlertProvider = ({ children }: AlertProviderProps) => {
     id: number;
   } | null>(null);
 
-  const showAlert = (config: AlertConfig) => {
+  const showAlert = useCallback((config: AlertConfig) => {
     setAlert(config);
-  };
+  }, []);
 
-  const showToast = (
+  const showToast = useCallback((
     message: string,
     type: AlertType = "info",
     duration: number = 3000
@@ -61,14 +61,25 @@ export const AlertProvider = ({ children }: AlertProviderProps) => {
     setTimeout(() => {
       setToast((current) => (current?.id === id ? null : current));
     }, duration);
-  };
+  }, []);
 
-  const hideAlert = () => {
+  const hideAlert = useCallback(() => {
     setAlert(null);
-  };
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  // CRITICAL: Memoize context value to prevent cascading re-renders
+  const value = useMemo(() => ({
+    showAlert,
+    showToast,
+    hideAlert,
+  }), [showAlert, showToast, hideAlert]);
 
   return (
-    <AlertContext.Provider value={{ showAlert, showToast, hideAlert }}>
+    <AlertContext.Provider value={value}>
       {children}
       {alert && (
         <CustomAlert
@@ -84,7 +95,7 @@ export const AlertProvider = ({ children }: AlertProviderProps) => {
         <ToastNotification
           message={toast.message}
           type={toast.type}
-          onHide={() => setToast(null)}
+          onHide={hideToast}
         />
       )}
     </AlertContext.Provider>

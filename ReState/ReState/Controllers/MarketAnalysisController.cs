@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ReState.Data;
 using System.Security.Claims;
@@ -26,9 +26,20 @@ namespace ReState.Controllers
             {
                 _logger.LogInformation("Fetching market overview");
 
-                var properties = await _context.Properties.ToListAsync();
+                var stats = await _context.Properties
+                    .GroupBy(_ => 1)
+                    .Select(g => new
+                    {
+                        Total = g.Count(),
+                        Available = g.Count(p => p.Status == "Available"),
+                        Sold = g.Count(p => p.Status == "Sold"),
+                        Average = g.Average(p => p.Price),
+                        Min = g.Min(p => p.Price),
+                        Max = g.Max(p => p.Price)
+                    })
+                    .FirstOrDefaultAsync();
 
-                if (!properties.Any())
+                if (stats == null)
                 {
                     _logger.LogWarning("No properties found in database");
                     return Ok(new
@@ -43,25 +54,16 @@ namespace ReState.Controllers
                     });
                 }
 
-                var totalProperties = properties.Count;
-                var availableProperties = properties.Count(p => p.Status == "Available");
-                var soldProperties = properties.Count(p => p.Status == "Sold");
-                var averagePrice = properties.Average(p => p.Price);
-                var medianPrice = CalculateMedian(properties.Select(p => p.Price).ToList());
-                var lowestPrice = properties.Min(p => p.Price);
-                var highestPrice = properties.Max(p => p.Price);
-
-                _logger.LogInformation($"Market overview fetched successfully. Total properties: {totalProperties}");
+                _logger.LogInformation($"Market overview fetched successfully. Total properties: {stats.Total}");
 
                 return Ok(new
                 {
-                    totalProperties,
-                    availableProperties,
-                    soldProperties,
-                    averagePrice = Math.Round(averagePrice, 2),
-                    medianPrice = Math.Round(medianPrice, 2),
-                    lowestPrice,
-                    highestPrice
+                    totalProperties = stats.Total,
+                    availableProperties = stats.Available,
+                    soldProperties = stats.Sold,
+                    averagePrice = Math.Round(stats.Average, 2),
+                    lowestPrice = stats.Min,
+                    highestPrice = stats.Max
                 });
             }
             catch (Exception ex)
@@ -79,15 +81,7 @@ namespace ReState.Controllers
             {
                 _logger.LogInformation("Fetching prices by property type");
 
-                var properties = await _context.Properties.ToListAsync();
-
-                if (!properties.Any())
-                {
-                    _logger.LogWarning("No properties found for type analysis");
-                    return Ok(new List<object>());
-                }
-
-                var pricesByType = properties
+                var pricesByType = await _context.Properties
                     .Where(p => !string.IsNullOrEmpty(p.PropertyType))
                     .GroupBy(p => p.PropertyType)
                     .Select(g => new
@@ -99,7 +93,7 @@ namespace ReState.Controllers
                         maxPrice = g.Max(p => p.Price)
                     })
                     .OrderByDescending(x => x.averagePrice)
-                    .ToList();
+                    .ToListAsync();
 
                 _logger.LogInformation($"Found {pricesByType.Count} property types");
 
@@ -156,28 +150,30 @@ namespace ReState.Controllers
 
                 var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
 
-                var recentProperties = await _context.Properties
+                var trends = await _context.Properties
                     .Where(p => p.CreatedAt >= sixMonthsAgo)
-                    .ToListAsync();
-
-                if (!recentProperties.Any())
-                {
-                    _logger.LogWarning("No recent properties found for trends");
-                    return Ok(new
-                    {
-                        trends = new List<object>(),
-                        trendPercentage = (decimal?)null,
-                        trendDirection = "stable"
-                    });
-                }
-
-                var trends = recentProperties
                     .GroupBy(p => new { p.CreatedAt.Year, p.CreatedAt.Month })
                     .Select(g => new
                     {
-                        month = $"{g.Key.Year}-{g.Key.Month:D2}",
-                        averagePrice = Math.Round(g.Average(p => p.Price), 2),
+                        year = g.Key.Year,
+                        month = g.Key.Month,
+                        averagePrice = g.Average(p => p.Price),
                         count = g.Count()
+                    })
+                    .ToListAsync();
+
+                if (!trends.Any())
+                {
+                    _logger.LogWarning("No recent properties found for trends");
+                    return Ok(new { trends = new List<object>(), trendPercentage = (decimal?)null, trendDirection = "stable" });
+                }
+
+                var formattedTrends = trends
+                    .Select(t => new
+                    {
+                        month = $"{t.year}-{t.month:D2}",
+                        averagePrice = Math.Round(t.averagePrice, 2),
+                        count = t.count
                     })
                     .OrderBy(x => x.month)
                     .ToList();
@@ -258,28 +254,33 @@ namespace ReState.Controllers
 
                 var threeMonthsAgo = DateTime.UtcNow.AddMonths(-3);
 
-                var recentProperties = await _context.Properties
+                var recentStats = await _context.Properties
                     .Where(p => p.CreatedAt >= threeMonthsAgo)
-                    .ToListAsync();
+                    .GroupBy(_ => 1)
+                    .Select(g => new
+                    {
+                        Count = g.Count(),
+                        Average = g.Average(p => p.Price)
+                    })
+                    .FirstOrDefaultAsync();
 
-                if (recentProperties.Count < 10)
+                if (recentStats == null || recentStats.Count < 10)
                 {
-                    _logger.LogWarning($"Insufficient data for forecast. Only {recentProperties.Count} properties found");
+                    _logger.LogWarning($"Insufficient data for forecast. Only {recentStats?.Count ?? 0} properties found");
 
-                    var allProperties = await _context.Properties.ToListAsync();
-                    var currentAvg = allProperties.Any() ? allProperties.Average(p => p.Price) : 0;
+                    var allTimeAvg = await _context.Properties.AnyAsync() ? await _context.Properties.AverageAsync(p => p.Price) : 0;
 
                     return Ok(new
                     {
                         forecast = "insufficient_data",
-                        message = $"Not enough data for accurate forecast. Found {recentProperties.Count} recent properties, need at least 10.",
-                        currentAveragePrice = Math.Round(currentAvg, 2),
+                        message = $"Not enough data for accurate forecast. Found {recentStats?.Count ?? 0} recent properties, need at least 10.",
+                        currentAveragePrice = Math.Round(allTimeAvg, 2),
                         growthRate = 0m,
                         recommendation = "Insufficient data"
                     });
                 }
 
-                var recentAverage = recentProperties.Average(p => p.Price);
+                var recentAverage = recentStats.Average;
                 var allTimeAverage = await _context.Properties.AverageAsync(p => p.Price);
 
                 var growth = allTimeAverage > 0

@@ -1,39 +1,136 @@
 import LanguageSelector from "@/components/LanguageSelector";
+import ThemeSelector from "@/components/ThemeSelector";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
 import { useChat } from "@/contexts/ChatContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { shadows, shadowsDark } from "@/constants/shadows";
+import { radius, spacing, layout } from "@/constants/spacing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { useCallback, useState } from "react";
+import React, { useCallback, useState, memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
-  Image,
   ImageSourcePropType,
+  Pressable,
   RefreshControl,
-  ScrollView,
   Text,
-  TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
+import Animated from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import icons from "../../../constants/icons";
 
-export default function ProfileScreen() {
+// PERFORMANCE: Removed AnimatedPressable and spring animations
+
+// Memoized SettingsItem with animation
+interface SettingsItemProps {
+  icon: any;
+  title: string;
+  onPress?: () => void;
+  isDanger?: boolean;
+  showArrow?: boolean;
+  tintColor?: string;
+  isChat?: boolean;
+  colors: { icon: string; text: string; danger: string; surfaceElevated: string; primary: string };
+  isDark: boolean;
+}
+
+// ChatBadge component - Decoupled from Profile re-renders
+const ChatBadge = memo(() => {
+  const { totalUnreadCount } = useChat();
+  if (totalUnreadCount === 0) return null;
+  
+  const { colors } = useTheme();
+  
+  return (
+    <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+      <Text style={styles.badgeText}>{totalUnreadCount}</Text>
+    </View>
+  );
+});
+ChatBadge.displayName = "ChatBadge";
+
+// PERFORMANCE: Removed spring animations - using simple opacity feedback
+const SettingsItem = memo(function SettingsItem({
+  icon,
+  title,
+  onPress,
+  isDanger = false,
+  showArrow = true,
+  tintColor,
+  isChat = false,
+  colors,
+  isDark,
+}: SettingsItemProps & { isChat?: boolean }) {
+  const cardShadow = isDark ? shadowsDark.xs : shadows.xs;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.settingsItem,
+        { backgroundColor: colors.surfaceElevated },
+        cardShadow,
+        pressed && styles.settingsItemPressed,
+      ]}
+    >
+      <View style={styles.settingsItemLeft}>
+        <View style={[
+          styles.settingsIconCircle,
+          { backgroundColor: isDanger ? '#FEE2E2' : (tintColor ? `${tintColor}15` : colors.surfaceElevated) }
+        ]}>
+          <ExpoImage
+            source={icon}
+            style={[
+              styles.settingsIcon,
+              { tintColor: isDanger ? colors.danger : (tintColor || colors.icon) }
+            ]}
+            contentFit="contain"
+          />
+        </View>
+        <Text style={[
+          styles.settingsItemText,
+          { color: isDanger ? colors.danger : colors.text }
+        ]}>
+          {title}
+        </Text>
+        {isChat && <ChatBadge />}
+      </View>
+
+      <View>
+        <ExpoImage
+          source={icons.rightArrow}
+          style={[styles.arrowIcon, { tintColor: colors.icon }]}
+          contentFit="contain"
+        />
+      </View>
+    </Pressable>
+  );
+});
+
+const ProfileScreen = memo(function ProfileScreen() {
   const { user, logout, refreshUser, requestAgentRole } = useAuth();
   const { t, i18n } = useTranslation();
   const { showAlert, showToast } = useAlert();
-  const { totalUnreadCount, conversations } = useChat();
+  const { colors, isDark } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
   const [requestingAgent, setRequestingAgent] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Animation values
+  const cardShadow = isDark ? shadowsDark.lg : shadows.lg;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refreshUser(); // Triggers the context to fetch latest user data/role
+      await refreshUser();
     } catch (error) {
       console.error("Error refreshing profile:", error);
     } finally {
@@ -41,44 +138,14 @@ export default function ProfileScreen() {
     }
   }, [refreshUser]);
 
-  interface SettingsItemProp {
-    icon: ImageSourcePropType;
-    title: string;
-    onPress?: () => void;
-    textStyle?: string;
-    showArrow?: boolean;
-    style?: string;
-    tintColor?: string;
-  }
-
-  const SettingsItem = ({
-    icon,
-    title,
-    onPress,
-    textStyle,
-    showArrow = true,
-    tintColor,
-  }: SettingsItemProp) => (
-    <TouchableOpacity
-      onPress={onPress}
-      className="flex flex-row items-center justify-between py-3"
-    >
-      <View className="flex flex-row items-center gap-3">
-        <Image
-          source={icon}
-          className="size-6"
-          style={tintColor ? { tintColor } : undefined}
-        />
-        <Text
-          className={`text-lg font-rubik-medium text-black-300 ${textStyle}`}
-        >
-          {title}
-        </Text>
-      </View>
-
-      {showArrow && <Image source={icons.rightArrow} className="size-5" />}
-    </TouchableOpacity>
-  );
+  // Memoize colors object for SettingsItem
+  const settingsColors = useMemo(() => ({
+    icon: colors.icon,
+    text: colors.text,
+    danger: colors.danger,
+    surfaceElevated: colors.surfaceElevated,
+    primary: colors.primary,
+  }), [colors.icon, colors.text, colors.danger, colors.surfaceElevated, colors.primary]);
 
   const handleLanguageSelect = (langCode: string) => {
     i18n.changeLanguage(langCode);
@@ -223,8 +290,8 @@ export default function ProfileScreen() {
     }
   };
 
-  // Settings array - conditionally show "My Properties" for Agents/Admins only
-  const settings = [
+  // Memoize settings array to prevent rebuilding on every render
+  const settings = useMemo(() => [
     // Admin Dashboard - Only for Admins
     ...(user?.role === "Admin"
       ? [
@@ -255,7 +322,7 @@ export default function ProfileScreen() {
     {
       icon: icons.filter,
       title: t("preferences.yourPreferences"),
-      onPress: () => router.push("/(root)/(tabs)/edit-preferences"),
+      onPress: () => router.push("/(root)/edit-preferences"),
       tintColor: "#8B5CF6",
     },
     {
@@ -264,19 +331,13 @@ export default function ProfileScreen() {
       onPress: () => router.push("/my-reports"),
       tintColor: "#0061FF",
     },
-    // My Chats - Only show when there are conversations
-    ...(conversations.length > 0
-      ? [
-          {
-            icon: icons.chat,
-            title:
-              t("profile.myChats") +
-              (totalUnreadCount > 0 ? ` (${totalUnreadCount})` : ""),
-            onPress: () => router.push("/chats"),
-            tintColor: "#10B981",
-          },
-        ]
-      : []),
+    {
+      icon: icons.chat,
+      title: t("profile.myChats"),
+      onPress: () => router.push("/chats"),
+      tintColor: "#10B981",
+      isChat: true,
+    },
     {
       icon: icons.person,
       title: t("profile.title"),
@@ -329,170 +390,192 @@ export default function ProfileScreen() {
       onPress: () => setLanguageModalVisible(true),
     },
     {
+      icon: icons.eye,
+      title: t("profile.appearance") || "Appearance",
+      onPress: () => setThemeModalVisible(true),
+      tintColor: "#8B5CF6",
+    },
+    {
       icon: icons.info,
       title: t("profile.helpCenter"),
       onPress: () => router.push("/help-center"),
     },
-  ];
+  ], [user?.role, t]);
+
+  const renderHeader = useCallback(() => (
+    <View style={styles.scrollHeader}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={[styles.accentLine, { backgroundColor: colors.accent }]} />
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {t("profile.title")}
+        </Text>
+      </View>
+
+      {/* Profile Card */}
+      <View style={[styles.profileCard, { backgroundColor: colors.surface }, cardShadow]}>
+        <View style={styles.avatarContainer}>
+          <View style={[styles.avatarWrapper, cardShadow]}>
+            <ExpoImage
+              source={{
+                uri: user?.profilePictureUrl || "https://via.placeholder.com/150",
+              }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+            {uploading && (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator size="large" color="#ffffff" />
+              </View>
+            )}
+          </View>
+
+          <Pressable
+            onPress={pickImage}
+            disabled={uploading}
+            style={[styles.editButton, { backgroundColor: colors.accent }]}
+          >
+            <ExpoImage
+              source={icons.edit}
+              style={styles.editIcon}
+              tintColor="#FFFFFF"
+              contentFit="contain"
+            />
+          </Pressable>
+        </View>
+
+        <Text style={[styles.userName, { color: colors.text }]}>
+          {user?.username}
+        </Text>
+
+        {/* Role Badge */}
+        <View style={[
+          styles.roleBadge,
+          {
+            backgroundColor:
+              user?.role === "Admin" ? '#FEE2E2' :
+              user?.role === "CityAdmin" ? '#FFEDD5' :
+              user?.role === "Agent" ? '#DBEAFE' : colors.surfaceElevated
+          }
+        ]}>
+          <Text style={[
+            styles.roleBadgeText,
+            {
+              color:
+                user?.role === "Admin" ? '#DC2626' :
+                user?.role === "CityAdmin" ? '#EA580C' :
+                user?.role === "Agent" ? '#2563EB' : colors.textSecondary
+            }
+          ]}>
+            {user?.role === "Admin"
+              ? t("profile.roleAdmin") || "Administrator"
+              : user?.role === "CityAdmin"
+                ? `${user?.city || "City"} Admin`
+                : user?.role === "Agent"
+                  ? t("profile.roleAgent") || "Agent"
+                  : t("profile.roleUser") || "User"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Become an Agent Button - Only for Users */}
+      {user?.role === "User" && (
+        <Pressable
+          onPress={handleRequestAgentRole}
+          disabled={requestingAgent}
+          style={[styles.agentButton, isDark ? shadowsDark.md : shadows.md]}
+        >
+          {requestingAgent ? (
+            <View style={styles.agentButtonLoading}>
+              <ActivityIndicator size="small" color="#ffffff" />
+              <Text style={styles.agentButtonLoadingText}>
+                {t("common.loading") || "Loading..."}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.agentButtonContent}>
+              <View style={styles.agentButtonLeft}>
+                <View style={styles.agentButtonIconCircle}>
+                  <ExpoImage
+                    source={icons.home}
+                    style={styles.agentButtonIcon}
+                    tintColor="#FFFFFF"
+                    contentFit="contain"
+                  />
+                </View>
+                <View style={styles.agentButtonTextContainer}>
+                  <Text style={styles.agentButtonTitle}>
+                    {t("profile.becomeAgent") || "Become an Agent"}
+                  </Text>
+                  <Text style={styles.agentButtonSubtitle}>
+                    {t("profile.becomeAgentDesc") || "List and manage properties"}
+                  </Text>
+                </View>
+              </View>
+              <ExpoImage
+                source={icons.rightArrow}
+                style={styles.agentButtonArrow}
+                tintColor="#FFFFFF"
+                contentFit="contain"
+              />
+            </View>
+          )}
+        </Pressable>
+      )}
+
+      {/* Settings Section Title */}
+      <View style={styles.settingsSection}>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t("profile.settings") || "Settings"}
+        </Text>
+      </View>
+    </View>
+  ), [user, colors, cardShadow, uploading, pickImage, isDark, requestingAgent, t, handleRequestAgentRole]);
+
+  const renderFooter = useCallback(() => (
+    <View style={styles.logoutSection}>
+      <SettingsItem
+        icon={icons.logout}
+        title={t("auth.logout")}
+        isDanger={true}
+        showArrow={false}
+        onPress={logout}
+        colors={settingsColors}
+        isDark={isDark}
+      />
+    </View>
+  ), [t, logout, settingsColors, isDark]);
+
+  const renderSettingsItem = useCallback(({ item }: { item: any }) => (
+    <View style={styles.settingsItemWrapper}>
+      <SettingsItem
+        {...item}
+        colors={settingsColors}
+        isDark={isDark}
+      />
+    </View>
+  ), [settingsColors, isDark]);
 
   return (
-    <SafeAreaView className="h-full bg-white">
-      <ScrollView
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
+      <Animated.FlatList
+        data={settings}
+        keyExtractor={(_, index) => index.toString()}
+        renderItem={renderSettingsItem}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
         showsVerticalScrollIndicator={false}
-        contentContainerClassName="pb-32 px-7"
+        contentContainerStyle={styles.scrollContent}
+        removeClippedSubviews={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#0061FF" // Match your primary color
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
-      >
-        <View className="flex flex-row items-center justify-between mt-5">
-          <Text className="text-xl font-rubik-bold">{t("profile.title")}</Text>
-        </View>
-
-        <View className="flex flex-row justify-center mt-5">
-          <View className="flex flex-col items-center relative mt-5">
-            <View className="relative">
-              <Image
-                source={{
-                  uri:
-                    user?.profilePictureUrl ||
-                    "https://via.placeholder.com/150",
-                }}
-                className="size-44 relative rounded-full"
-              />
-
-              {uploading && (
-                <View className="absolute inset-0 bg-black/50 rounded-full items-center justify-center">
-                  <ActivityIndicator size="large" color="#ffffff" />
-                </View>
-              )}
-
-              <TouchableOpacity
-                onPress={pickImage}
-                disabled={uploading}
-                className="absolute bottom-1 right-1 bg-primary-300 rounded-full p-3 shadow-lg"
-              >
-                <Image
-                  source={icons.edit}
-                  className="w-8 h-8"
-                  tintColor="#FFFFFF"
-                />
-              </TouchableOpacity>
-            </View>
-
-            <Text className="text-2xl font-rubik-bold mt-2">
-              {user?.username}
-            </Text>
-
-            {/* Role Badge */}
-            <View className="flex-row items-center justify-center mt-2">
-              <View
-                className={`px-4 py-1 rounded-full ${
-                  user?.role === "Admin"
-                    ? "bg-red-100"
-                    : user?.role === "CityAdmin"
-                      ? "bg-orange-100"
-                      : user?.role === "Agent"
-                        ? "bg-blue-100"
-                        : "bg-gray-100"
-                }`}
-              >
-                <Text
-                  className={`font-rubik-semibold text-sm ${
-                    user?.role === "Admin"
-                      ? "text-red-700"
-                      : user?.role === "CityAdmin"
-                        ? "text-orange-700"
-                        : user?.role === "Agent"
-                          ? "text-blue-700"
-                          : "text-gray-700"
-                  }`}
-                >
-                  {user?.role === "Admin"
-                    ? t("profile.roleAdmin") || "Administrator"
-                    : user?.role === "CityAdmin"
-                      ? `${user?.city || "City"} Admin`
-                      : user?.role === "Agent"
-                        ? t("profile.roleAgent") || "Agent"
-                        : t("profile.roleUser") || "User"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Become an Agent Button - Only for Users (not Admin, CityAdmin, or Agent) */}
-        {user?.role === "User" && (
-          <View className="mt-6 px-2">
-            <TouchableOpacity
-              onPress={handleRequestAgentRole}
-              disabled={requestingAgent}
-              className="bg-blue-600 rounded-xl py-4 px-6 shadow-md"
-              style={{
-                shadowColor: "#2563EB",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-                elevation: 5,
-              }}
-            >
-              {requestingAgent ? (
-                <View className="flex-row items-center justify-center">
-                  <ActivityIndicator size="small" color="#ffffff" />
-                  <Text className="text-white font-rubik-semibold ml-2">
-                    {t("common.loading") || "Loading..."}
-                  </Text>
-                </View>
-              ) : (
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center flex-1">
-                    <View className="bg-white/20 p-2 rounded-full mr-3">
-                      <Image
-                        source={icons.home}
-                        className="w-6 h-6"
-                        tintColor="#FFFFFF"
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-white font-rubik-bold text-base">
-                        {t("profile.becomeAgent") || "Become an Agent"}
-                      </Text>
-                      <Text className="text-white/90 font-rubik text-xs mt-1">
-                        {t("profile.becomeAgentDesc") ||
-                          "List and manage properties"}
-                      </Text>
-                    </View>
-                  </View>
-                  <Image
-                    source={icons.rightArrow}
-                    className="w-5 h-5"
-                    tintColor="#FFFFFF"
-                  />
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View className="flex flex-col mt-5 border-t pt-5 border-primary-200">
-          {settings.map((item, index) => (
-            <SettingsItem key={index} {...item} />
-          ))}
-        </View>
-
-        <View className="flex flex-col border-t mt-5 pt-5 border-primary-200">
-          <SettingsItem
-            icon={icons.logout}
-            title={t("auth.logout")}
-            textStyle="text-danger"
-            showArrow={false}
-            onPress={logout}
-          />
-        </View>
-      </ScrollView>
+      />
 
       {/* Language Selector Modal */}
       <LanguageSelector
@@ -501,6 +584,231 @@ export default function ProfileScreen() {
         onClose={() => setLanguageModalVisible(false)}
         onSelectLanguage={handleLanguageSelect}
       />
+
+      {/* Theme Selector Modal */}
+      <ThemeSelector
+        visible={themeModalVisible}
+        onClose={() => setThemeModalVisible(false)}
+      />
     </SafeAreaView>
   );
-}
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 120,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: layout.screenPaddingX,
+    paddingTop: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  accentLine: {
+    width: 4,
+    height: 28,
+    borderRadius: 2,
+    marginRight: spacing.sm,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontFamily: 'Rubik-Bold',
+    letterSpacing: -0.5,
+  },
+  profileCard: {
+    marginHorizontal: layout.screenPaddingX,
+    borderRadius: radius.cardLg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: spacing.base,
+  },
+  avatarWrapper: {
+    borderRadius: 80,
+    overflow: 'hidden',
+  },
+  avatar: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editButton: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editIcon: {
+    width: 22,
+    height: 22,
+  },
+  userName: {
+    fontSize: 24,
+    fontFamily: 'Rubik-Bold',
+    marginBottom: spacing.sm,
+  },
+  roleBadge: {
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+  },
+  roleBadgeText: {
+    fontSize: 13,
+    fontFamily: 'Rubik-SemiBold',
+  },
+  agentButton: {
+    marginHorizontal: layout.screenPaddingX,
+    backgroundColor: '#2563EB',
+    borderRadius: radius.lg,
+    padding: spacing.base,
+    marginBottom: spacing.xl,
+  },
+  agentButtonLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+  },
+  agentButtonLoadingText: {
+    color: '#FFFFFF',
+    fontFamily: 'Rubik-SemiBold',
+    marginLeft: spacing.sm,
+  },
+  agentButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  agentButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  agentButtonIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  agentButtonIcon: {
+    width: 22,
+    height: 22,
+  },
+  agentButtonTextContainer: {
+    flex: 1,
+  },
+  agentButtonTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'Rubik-Bold',
+  },
+  agentButtonSubtitle: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    fontFamily: 'Rubik-Regular',
+    marginTop: 2,
+  },
+  agentButtonArrow: {
+    width: 20,
+    height: 20,
+  },
+  settingsSection: {
+    paddingHorizontal: layout.screenPaddingX,
+    marginBottom: spacing.md,
+    marginTop: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontFamily: 'Rubik-SemiBold',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  settingsItemWrapper: {
+    paddingHorizontal: layout.screenPaddingX,
+    marginBottom: spacing.sm,
+  },
+  scrollHeader: {
+    paddingBottom: spacing.md,
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.base,
+    borderRadius: radius.md,
+  },
+  settingsItemPressed: {
+    opacity: 0.8,
+  },
+  settingsItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingsIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  settingsIcon: {
+    width: 22,
+    height: 22,
+  },
+  settingsItemText: {
+    fontSize: 15,
+    fontFamily: 'Rubik-Medium',
+    flex: 1,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: spacing.sm,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontFamily: 'Rubik-Bold',
+  },
+  arrowIcon: {
+    width: 18,
+    height: 18,
+    opacity: 0,
+  },
+  logoutSection: {
+    paddingHorizontal: layout.screenPaddingX,
+    marginBottom: spacing.xl,
+  },
+});
+
+export default ProfileScreen;
+

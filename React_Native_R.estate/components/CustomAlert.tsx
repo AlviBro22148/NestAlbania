@@ -115,6 +115,7 @@ export default function CustomAlert({
       visible={visible}
       transparent
       animationType="none"
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <Animated.View

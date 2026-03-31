@@ -1,11 +1,12 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
 import { useChat, ChatMessage, ChatConversation } from "@/contexts/ChatContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import icons from "@/constants/icons";
 import { useBackNavigation } from "@/hooks/useBackNavigation";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -26,6 +27,7 @@ export default function ChatConversationScreen() {
   const { user } = useAuth();
   const { showToast } = useAlert();
   const { fetchConversation, getMessages, sendMessage, markAsRead } = useChat();
+  const { colors, isDark } = useTheme();
 
   const [conversation, setConversation] = useState<ChatConversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -33,7 +35,7 @@ export default function ChatConversationScreen() {
   const [sending, setSending] = useState(false);
   const [messageText, setMessageText] = useState("");
   const flatListRef = useRef<FlatList>(null);
-  const handleBack = useBackNavigation("/(root)/(tabs)/chats");
+  const handleBack = useBackNavigation("/(root)/chats");
 
   // Load conversation and messages
   const loadData = useCallback(async () => {
@@ -67,22 +69,33 @@ export default function ChatConversationScreen() {
     }, [loadData])
   );
 
-  // Poll for new messages every 10 seconds
+  // Poll for new messages every 30 seconds (reduced from 10s for performance)
   useEffect(() => {
     if (!id) return;
     const conversationId = parseInt(id, 10);
 
     const interval = setInterval(async () => {
-      const msgs = await getMessages(conversationId);
-      const sortedMsgs = [...msgs].sort((a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-      setMessages(sortedMsgs);
-      await markAsRead(conversationId);
-    }, 10000);
+      try {
+        const msgs = await getMessages(conversationId);
+        // Only update if message count changed to avoid unnecessary re-renders
+        setMessages(prev => {
+          if (prev.length === msgs.length &&
+              prev[prev.length - 1]?.id === msgs[msgs.length - 1]?.id) {
+            return prev; // No change, return same reference
+          }
+          // Sort only when we have new messages
+          return [...msgs].sort((a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+        });
+        await markAsRead(conversationId);
+      } catch (error) {
+        // Silent fail for polling
+      }
+    }, 30000);
 
     return () => clearInterval(interval);
-  }, [id]);
+  }, [id, getMessages, markAsRead]);
 
   // Handle send message
   const handleSend = async () => {
@@ -159,19 +172,29 @@ export default function ChatConversationScreen() {
     }).format(price);
   };
 
-  // Group messages by date
-  const groupedMessages = messages.reduce((groups: { date: string; messages: ChatMessage[] }[], message) => {
-    const date = new Date(message.createdAt).toDateString();
-    const lastGroup = groups[groups.length - 1];
+  // Memoized message grouping - only recalculate when messages change
+  const groupedMessages = useMemo(() => {
+    return messages.reduce((groups: { date: string; messages: ChatMessage[] }[], message) => {
+      const date = new Date(message.createdAt).toDateString();
+      const lastGroup = groups[groups.length - 1];
 
-    if (lastGroup && lastGroup.date === date) {
-      lastGroup.messages.push(message);
-    } else {
-      groups.push({ date, messages: [message] });
-    }
+      if (lastGroup && lastGroup.date === date) {
+        lastGroup.messages.push(message);
+      } else {
+        groups.push({ date, messages: [message] });
+      }
 
-    return groups;
-  }, []);
+      return groups;
+    }, []);
+  }, [messages]);
+
+  // Memoized flat data for FlatList - prevents recreation on every render
+  const flatListData = useMemo(() => {
+    return groupedMessages.flatMap(group => [
+      { type: "date" as const, date: group.date, id: `date-${group.date}` },
+      ...group.messages.map(m => ({ type: "message" as const, ...m })),
+    ]);
+  }, [groupedMessages]);
 
   const renderMessage = ({ item: message }: { item: ChatMessage }) => {
     const isOwnMessage = message.senderId === user?.id;
@@ -182,23 +205,24 @@ export default function ChatConversationScreen() {
       >
         <View
           className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-            isOwnMessage
-              ? "bg-primary-300 rounded-br-md"
-              : "bg-white border border-gray-200 rounded-bl-md"
+            isOwnMessage ? "rounded-br-md" : "rounded-bl-md"
           }`}
+          style={{
+            backgroundColor: isOwnMessage ? colors.primary : colors.surface,
+            borderWidth: isOwnMessage ? 0 : 1,
+            borderColor: colors.border,
+          }}
         >
           <Text
-            className={`text-base font-rubik ${
-              isOwnMessage ? "text-white" : "text-gray-900"
-            }`}
+            className="text-base font-rubik"
+            style={{ color: isOwnMessage ? "#FFFFFF" : colors.text }}
           >
             {message.content}
           </Text>
           <View className="flex-row items-center justify-end mt-1">
             <Text
-              className={`text-xs ${
-                isOwnMessage ? "text-white/70" : "text-gray-400"
-              }`}
+              className="text-xs"
+              style={{ color: isOwnMessage ? "rgba(255,255,255,0.7)" : colors.textMuted }}
             >
               {formatTime(message.createdAt)}
             </Text>
@@ -218,19 +242,19 @@ export default function ChatConversationScreen() {
 
   const renderDateSeparator = (date: string) => (
     <View className="flex-row items-center justify-center my-4">
-      <View className="flex-1 h-px bg-gray-200" />
-      <View className="bg-gray-100 px-4 py-1 rounded-full mx-4">
-        <Text className="text-xs font-rubik-medium text-gray-500">
+      <View className="flex-1 h-px" style={{ backgroundColor: colors.border }} />
+      <View className="px-4 py-1 rounded-full mx-4" style={{ backgroundColor: colors.surfaceElevated }}>
+        <Text className="text-xs font-rubik-medium" style={{ color: colors.textSecondary }}>
           {formatDate(date)}
         </Text>
       </View>
-      <View className="flex-1 h-px bg-gray-200" />
+      <View className="flex-1 h-px" style={{ backgroundColor: colors.border }} />
     </View>
   );
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+      <SafeAreaView className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color="#10B981" />
       </SafeAreaView>
     );
@@ -238,14 +262,15 @@ export default function ChatConversationScreen() {
 
   if (!conversation) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center p-6">
-        <Ionicons name="chatbubbles-outline" size={64} color="#9CA3AF" />
-        <Text className="text-xl font-rubik-bold text-gray-900 mt-4">
+      <SafeAreaView className="flex-1 items-center justify-center p-6" style={{ backgroundColor: colors.background }}>
+        <Ionicons name="chatbubbles-outline" size={64} color={colors.textMuted} />
+        <Text className="text-xl font-rubik-bold mt-4" style={{ color: colors.text }}>
           {t("chat.conversationNotFound")}
         </Text>
         <TouchableOpacity
           onPress={handleBack}
-          className="mt-6 bg-primary-300 px-6 py-3 rounded-xl"
+          className="mt-6 px-6 py-3 rounded-xl"
+          style={{ backgroundColor: colors.primary }}
         >
           <Text className="text-white font-rubik-bold">{t("common.back")}</Text>
         </TouchableOpacity>
@@ -264,17 +289,17 @@ export default function ChatConversationScreen() {
     : conversation.userProfilePicture;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }} edges={["top"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
         keyboardVerticalOffset={0}
       >
         {/* Header */}
-        <View className="bg-white px-4 py-3 border-b border-gray-200 shadow-sm">
+        <View className="px-4 py-3 border-b shadow-sm" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
           <View className="flex-row items-center">
             <TouchableOpacity onPress={handleBack} className="mr-3">
-              <Image source={icons.backArrow} className="w-6 h-6" />
+              <Image source={icons.backArrow} className="w-6 h-6" style={{ tintColor: colors.text }} />
             </TouchableOpacity>
 
             {/* Other Party Info */}
@@ -285,15 +310,15 @@ export default function ChatConversationScreen() {
                   className="w-10 h-10 rounded-full"
                 />
               ) : (
-                <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center">
-                  <Ionicons name="person" size={20} color="#9CA3AF" />
+                <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: colors.surfaceElevated }}>
+                  <Ionicons name="person" size={20} color={colors.textMuted} />
                 </View>
               )}
               <View className="ml-3 flex-1">
-                <Text className="text-base font-rubik-bold text-gray-900">
+                <Text className="text-base font-rubik-bold" style={{ color: colors.text }}>
                   {otherPartyName}
                 </Text>
-                <Text className="text-xs text-gray-500 font-rubik">
+                <Text className="text-xs font-rubik" style={{ color: colors.textSecondary }}>
                   {isUserInConversation ? t("chat.agent") : t("chat.user")}
                 </Text>
               </View>
@@ -302,16 +327,18 @@ export default function ChatConversationScreen() {
             {/* Property Quick View */}
             <TouchableOpacity
               onPress={() => router.push(`/(root)/properties/${conversation.propertyId}`)}
-              className="bg-gray-100 p-2 rounded-full"
+              className="p-2 rounded-full"
+              style={{ backgroundColor: colors.surfaceElevated }}
             >
-              <Ionicons name="home-outline" size={20} color="#6B7280" />
+              <Ionicons name="home-outline" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Property Banner */}
           <TouchableOpacity
             onPress={() => router.push(`/(root)/properties/${conversation.propertyId}`)}
-            className="flex-row items-center bg-gray-50 rounded-xl p-3 mt-3"
+            className="flex-row items-center rounded-xl p-3 mt-3"
+            style={{ backgroundColor: colors.surfaceElevated }}
           >
             {conversation.propertyImage && (
               <Image
@@ -320,33 +347,33 @@ export default function ChatConversationScreen() {
               />
             )}
             <View className="flex-1">
-              <Text className="text-sm font-rubik-medium text-gray-900" numberOfLines={1}>
+              <Text className="text-sm font-rubik-medium" numberOfLines={1} style={{ color: colors.text }}>
                 {conversation.propertyTitle}
               </Text>
-              <Text className="text-sm font-rubik-bold text-primary-300">
+              <Text className="text-sm font-rubik-bold" style={{ color: colors.primary }}>
                 {formatPrice(conversation.propertyPrice)}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
         {/* Messages List */}
         <FlatList
           ref={flatListRef}
-          data={groupedMessages.flatMap(group => [
-            { type: "date", date: group.date, id: `date-${group.date}` },
-            ...group.messages.map(m => ({ type: "message", ...m })),
-          ])}
+          data={flatListData}
           renderItem={({ item }) => {
             if (item.type === "date") {
-              return renderDateSeparator((item as any).date);
+              return renderDateSeparator(item.date);
             }
             return renderMessage({ item: item as ChatMessage });
           }}
-          keyExtractor={(item) => (item as any).id.toString()}
+          keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
           onContentSizeChange={() => {
             flatListRef.current?.scrollToEnd({ animated: false });
           }}
@@ -355,8 +382,8 @@ export default function ChatConversationScreen() {
           }}
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center py-20">
-              <Ionicons name="chatbubble-outline" size={48} color="#9CA3AF" />
-              <Text className="text-gray-500 font-rubik mt-4 text-center">
+              <Ionicons name="chatbubble-outline" size={48} color={colors.textMuted} />
+              <Text className="font-rubik mt-4 text-center" style={{ color: colors.textSecondary }}>
                 {t("chat.startConversation")}
               </Text>
             </View>
@@ -364,15 +391,16 @@ export default function ChatConversationScreen() {
         />
 
         {/* Message Input */}
-        <View className="bg-white border-t border-gray-200 px-4 py-3 pb-6">
+        <View className="border-t px-4 py-3 pb-6" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
           <View className="flex-row items-end">
-            <View className="flex-1 bg-gray-100 rounded-2xl px-4 py-3 mr-3 min-h-[48px] max-h-32">
+            <View className="flex-1 rounded-2xl px-4 py-3 mr-3 min-h-[48px] max-h-32" style={{ backgroundColor: colors.surfaceElevated }}>
               <TextInput
                 value={messageText}
                 onChangeText={setMessageText}
                 placeholder={t("chat.typeMessage")}
-                placeholderTextColor="#9CA3AF"
-                className="text-base font-rubik text-gray-900 max-h-24"
+                placeholderTextColor={colors.textMuted}
+                className="text-base font-rubik max-h-24"
+                style={{ color: colors.text }}
                 multiline
                 textAlignVertical="top"
               />
@@ -380,9 +408,8 @@ export default function ChatConversationScreen() {
             <TouchableOpacity
               onPress={handleSend}
               disabled={!messageText.trim() || sending}
-              className={`w-12 h-12 rounded-full items-center justify-center ${
-                messageText.trim() && !sending ? "bg-primary-300" : "bg-gray-200"
-              }`}
+              className="w-12 h-12 rounded-full items-center justify-center"
+              style={{ backgroundColor: messageText.trim() && !sending ? colors.primary : colors.surfaceElevated }}
             >
               {sending ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -390,7 +417,7 @@ export default function ChatConversationScreen() {
                 <Ionicons
                   name="send"
                   size={20}
-                  color={messageText.trim() ? "#FFFFFF" : "#9CA3AF"}
+                  color={messageText.trim() ? "#FFFFFF" : colors.textMuted}
                 />
               )}
             </TouchableOpacity>
@@ -400,3 +427,4 @@ export default function ChatConversationScreen() {
     </SafeAreaView>
   );
 }
+

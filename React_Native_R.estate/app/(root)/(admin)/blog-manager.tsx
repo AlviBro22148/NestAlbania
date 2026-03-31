@@ -2,8 +2,9 @@ import CustomButton from "@/components/CustomButton";
 import icons from "@/constants/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useBackNavigation } from "@/hooks/useBackNavigation";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import api, { getToken } from "@/lib/axios-config";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -11,6 +12,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  InteractionManager,
   Modal,
   ScrollView,
   Text,
@@ -46,7 +48,8 @@ interface ArticleForm {
 export default function AdminBlogManagerScreen() {
   const { user } = useAuth();
   const { showAlert, showToast } = useAlert();
-  const handleBack = useBackNavigation("/(root)/(tabs)/profile");
+  const { colors, isDark } = useTheme();
+  const handleBack = useBackNavigation("/(root)/profile");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [articles, setArticles] = useState<BlogArticle[]>([]);
@@ -76,26 +79,17 @@ export default function AdminBlogManagerScreen() {
       handleBack();
       return;
     }
-    loadArticles();
+    const task = InteractionManager.runAfterInteractions(() => {
+      loadArticles();
+    });
+    return () => task.cancel();
   }, []);
 
   const loadArticles = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem("accessToken");
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/Blog?pageSize=100`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setArticles(data.articles);
-      }
+      const response = await api.get("/api/Blog?pageSize=100");
+      setArticles(response.data.articles);
     } catch (error) {
       console.error("Error loading articles:", error);
       showToast("Failed to load articles", "error");
@@ -156,90 +150,60 @@ export default function AdminBlogManagerScreen() {
 
     try {
       setSaving(true);
-      const token = await AsyncStorage.getItem("accessToken");
 
-      // 2. Define the URL (This fixes your 'cannot find name url' error)
-      const url = editingId
-        ? `${process.env.EXPO_PUBLIC_API_URL}/api/Blog/${editingId}`
-        : `${process.env.EXPO_PUBLIC_API_URL}/api/Blog`;
-
-      // 3. Create FormData
+      // Create FormData
       const formData = new FormData();
-      // Append text fields with explicit string conversion
       formData.append("Title", form.title.trim());
       formData.append("Content", form.content.trim());
       formData.append("Summary", form.summary.trim());
       formData.append("Category", form.category.trim());
       formData.append("Tags", form.tags.trim());
-
-      // Convert ReadTimeMinutes to a string integer
       formData.append(
         "ReadTimeMinutes",
-        parseInt(form.readTimeMinutes || "5", 10).toString()
+        parseInt(form.readTimeMinutes || "5", 10).toString(),
       );
-
-      // IMPORTANT: Use lowercase "true"/"false" for .NET Boolean binding
       formData.append("IsFeatured", form.isFeatured ? "true" : "false");
       formData.append("IsPublished", form.isPublished ? "true" : "false");
 
-      // 4. Handle Image
+      // Handle Image
       if (selectedImage) {
         const uri = selectedImage.uri;
         const filename = uri.split("/").pop() || "image.jpg";
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : "image/jpeg";
 
-        // We cast to 'any' because React Native's FormData expects an object
-        // with uri, name, and type, which doesn't strictly match the Web standard 'Blob'
         formData.append("Image", {
           uri,
           name: filename,
           type,
         } as any);
       }
-      console.log("----------------------------");
-      console.log("FormData content check:");
-      if ((formData as any)._parts) {
-        for (let key of (formData as any)._parts) {
-          console.log(`${key[0]}:`, key[1]);
-        }
-      }
-      console.log("----------------------------");
-      // 5. Execute Request
-      console.log(`📤 Sending ${editingId ? "PUT" : "POST"} request to:`, url);
 
-      const response = await fetch(url, {
-        method: editingId ? "PUT" : "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const url = editingId ? `/api/Blog/${editingId}` : "/api/Blog";
 
-      // 6. Handle Response
-      if (response.ok) {
-        showToast(
-          `Article ${editingId ? "updated" : "created"} successfully`,
-          "success"
-        );
-        setShowModal(false);
-        resetForm();
-        loadArticles();
+      if (editingId) {
+        await api.put(url, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else {
-        const errorText = await response.text();
-        console.error("Server Error:", errorText);
-        showAlert({
-          type: "error",
-          title: "Error",
-          message: `Failed to save: ${response.status}`,
+        await api.post(url, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
       }
+
+      showToast(
+        `Article ${editingId ? "updated" : "created"} successfully`,
+        "success",
+      );
+      setShowModal(false);
+      resetForm();
+      loadArticles();
     } catch (error: any) {
       console.error("Upload Error:", error);
       showAlert({
         type: "error",
         title: "Error",
-        message: error.message || "An unexpected error occurred",
+        message: error.response?.data?.message || error.message || "An unexpected error occurred",
       });
     } finally {
       setSaving(false);
@@ -254,24 +218,19 @@ export default function AdminBlogManagerScreen() {
 
   const loadArticleForEdit = async (id: number) => {
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/Blog/${id}`
-      );
-
-      if (response.ok) {
-        const article = await response.json();
-        setForm({
-          title: article.title,
-          content: article.content,
-          summary: article.summary,
-          category: article.category,
-          tags: Array.isArray(article.tags) ? article.tags.join(", ") : "",
-          readTimeMinutes: article.readTimeMinutes.toString(),
-          isFeatured: article.isFeatured,
-          isPublished: true,
-        });
-        setShowModal(true);
-      }
+      const response = await api.get(`/api/Blog/${id}`);
+      const article = response.data;
+      setForm({
+        title: article.title,
+        content: article.content,
+        summary: article.summary,
+        category: article.category,
+        tags: Array.isArray(article.tags) ? article.tags.join(", ") : "",
+        readTimeMinutes: article.readTimeMinutes.toString(),
+        isFeatured: article.isFeatured,
+        isPublished: true,
+      });
+      setShowModal(true);
     } catch (error) {
       console.error("Error loading article:", error);
       showToast("Failed to load article for editing", "error");
@@ -291,31 +250,16 @@ export default function AdminBlogManagerScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              const token = await AsyncStorage.getItem("accessToken");
-              const response = await fetch(
-                `${process.env.EXPO_PUBLIC_API_URL}/api/Blog/${id}`,
-                {
-                  method: "DELETE",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-
-              if (response.ok) {
-                showToast("Article deleted successfully", "success");
-                loadArticles();
-              } else {
-                const errorData = await response.json();
-                showAlert({
-                  type: "error",
-                  title: "Error",
-                  message: errorData.message || "Failed to delete article",
-                });
-              }
-            } catch (error) {
+              await api.delete(`/api/Blog/${id}`);
+              showToast("Article deleted successfully", "success");
+              loadArticles();
+            } catch (error: any) {
               console.error("Error deleting article:", error);
-              showToast("Failed to delete article", "error");
+              showAlert({
+                type: "error",
+                title: "Error",
+                message: error.response?.data?.message || "Failed to delete article",
+              });
             }
           },
         },
@@ -340,7 +284,7 @@ export default function AdminBlogManagerScreen() {
   };
 
   const renderArticle = ({ item }: { item: BlogArticle }) => (
-    <View className="bg-white rounded-xl p-4 mb-3 shadow-sm">
+    <View className="rounded-xl p-4 mb-3 shadow-sm" style={{ backgroundColor: colors.surface }}>
       <View className="flex flex-row mb-2">
         <Image
           source={{ uri: item.imageUrl }}
@@ -349,12 +293,13 @@ export default function AdminBlogManagerScreen() {
         />
         <View className="flex-1">
           <Text
-            className="text-base font-rubik-bold text-black-300 mb-1"
+            className="text-base font-rubik-bold mb-1"
             numberOfLines={2}
+            style={{ color: colors.text }}
           >
             {item.title}
           </Text>
-          <Text className="text-black-200 text-sm font-rubik" numberOfLines={2}>
+          <Text className="text-sm font-rubik" numberOfLines={2} style={{ color: colors.textSecondary }}>
             {item.summary}
           </Text>
         </View>
@@ -362,8 +307,8 @@ export default function AdminBlogManagerScreen() {
 
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center">
-          <View className="bg-primary-100 px-2 py-1 rounded-full mr-2">
-            <Text className="text-primary-300 text-xs font-rubik">
+          <View className="px-2 py-1 rounded-full mr-2" style={{ backgroundColor: colors.primaryLight }}>
+            <Text className="text-xs font-rubik" style={{ color: colors.primary }}>
               {item.category}
             </Text>
           </View>
@@ -374,7 +319,7 @@ export default function AdminBlogManagerScreen() {
               </Text>
             </View>
           )}
-          <Text className="text-black-200 text-xs font-rubik">
+          <Text className="text-xs font-rubik" style={{ color: colors.textSecondary }}>
             {item.viewCount} views
           </Text>
         </View>
@@ -382,9 +327,10 @@ export default function AdminBlogManagerScreen() {
         <View className="flex flex-row">
           <TouchableOpacity
             onPress={() => handleEdit(item)}
-            className="bg-primary-100 p-2 rounded-lg mr-2"
+            className="p-2 rounded-lg mr-2"
+            style={{ backgroundColor: colors.primaryLight }}
           >
-            <Text className="text-primary-300 font-rubik-medium text-xs">
+            <Text className="font-rubik-medium text-xs" style={{ color: colors.primary }}>
               Edit
             </Text>
           </TouchableOpacity>
@@ -403,20 +349,20 @@ export default function AdminBlogManagerScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="h-full bg-white flex items-center justify-center">
-        <ActivityIndicator size="large" color="#4F46E5" />
+      <SafeAreaView className="h-full flex items-center justify-center" style={{ backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="h-full bg-white">
+    <SafeAreaView className="h-full" style={{ backgroundColor: colors.background }}>
       <View className="px-5 pt-5 pb-3 flex flex-row items-center justify-between">
         <View>
-          <Text className="text-2xl font-rubik-bold text-black-300">
+          <Text className="text-2xl font-rubik-bold" style={{ color: colors.text }}>
             Blog Manager
           </Text>
-          <Text className="text-black-200 font-rubik">
+          <Text className="font-rubik" style={{ color: colors.textSecondary }}>
             {articles.length} articles
           </Text>
         </View>
@@ -425,7 +371,8 @@ export default function AdminBlogManagerScreen() {
             resetForm();
             setShowModal(true);
           }}
-          className="bg-primary-300 px-4 py-2 rounded-lg"
+          className="px-4 py-2 rounded-lg"
+          style={{ backgroundColor: colors.primary }}
         >
           <Text className="text-white font-rubik-medium">+ New Article</Text>
         </TouchableOpacity>
@@ -438,7 +385,7 @@ export default function AdminBlogManagerScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
         ListEmptyComponent={
           <View className="py-10 items-center">
-            <Text className="text-black-200 font-rubik">No articles found</Text>
+            <Text className="font-rubik" style={{ color: colors.textSecondary }}>No articles found</Text>
           </View>
         }
       />
@@ -447,11 +394,12 @@ export default function AdminBlogManagerScreen() {
       <Modal
         visible={showModal}
         animationType="slide"
+        statusBarTranslucent={true}
         presentationStyle="pageSheet"
       >
-        <SafeAreaView className="flex-1 bg-white">
-          <View className="px-5 py-4 flex flex-row items-center justify-between border-b border-gray-200">
-            <Text className="text-xl font-rubik-bold">
+        <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
+          <View className="px-5 py-4 flex flex-row items-center justify-between" style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <Text className="text-xl font-rubik-bold" style={{ color: colors.text }}>
               {editingId ? "Edit Article" : "New Article"}
             </Text>
             <TouchableOpacity
@@ -460,18 +408,19 @@ export default function AdminBlogManagerScreen() {
                 resetForm();
               }}
             >
-              <Image source={icons.close} className="w-6 h-6" />
+              <Image source={icons.close} className="w-6 h-6" style={{ tintColor: colors.text }} />
             </TouchableOpacity>
           </View>
 
           <ScrollView className="flex-1 px-5 py-4">
             {/* Image Upload Section */}
-            <Text className="text-sm font-rubik-medium text-black-300 mb-2">
+            <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.text }}>
               Article Image *
             </Text>
             <TouchableOpacity
               onPress={pickImage}
-              className="border-2 border-dashed border-primary-200 rounded-lg p-4 mb-4 items-center"
+              className="border-2 border-dashed rounded-lg p-4 mb-4 items-center"
+              style={{ borderColor: colors.primary }}
             >
               {selectedImage ? (
                 <Image
@@ -486,7 +435,7 @@ export default function AdminBlogManagerScreen() {
                     className="w-full h-48 rounded-lg"
                     resizeMode="cover"
                   />
-                  <Text className="text-primary-300 font-rubik text-center mt-2">
+                  <Text className="font-rubik text-center mt-2" style={{ color: colors.primary }}>
                     Tap to change image
                   </Text>
                 </View>
@@ -495,46 +444,52 @@ export default function AdminBlogManagerScreen() {
                   <Image
                     source={icons.plus}
                     className="w-12 h-12 mb-2"
-                    tintColor="#6366F1"
+                    tintColor={colors.primary}
                   />
-                  <Text className="text-primary-300 font-rubik-medium">
+                  <Text className="font-rubik-medium" style={{ color: colors.primary }}>
                     Select Article Image
                   </Text>
-                  <Text className="text-black-200 font-rubik text-xs mt-1">
+                  <Text className="font-rubik text-xs mt-1" style={{ color: colors.textSecondary }}>
                     JPG, PNG, WEBP (Max 5MB)
                   </Text>
                 </View>
               )}
             </TouchableOpacity>
 
-            <Text className="text-sm font-rubik-medium text-black-300 mb-2">
+            <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.text }}>
               Title *
             </Text>
             <TextInput
-              className="border border-primary-200 rounded-lg px-4 py-3 font-rubik mb-4"
+              className="rounded-lg px-4 py-3 font-rubik mb-4"
+              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, color: colors.text }}
               placeholder="Article title"
+              placeholderTextColor={colors.textMuted}
               value={form.title}
               onChangeText={(text) => setForm({ ...form, title: text })}
             />
 
-            <Text className="text-sm font-rubik-medium text-black-300 mb-2">
+            <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.text }}>
               Summary *
             </Text>
             <TextInput
-              className="border border-primary-200 rounded-lg px-4 py-3 font-rubik mb-4"
+              className="rounded-lg px-4 py-3 font-rubik mb-4"
+              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, color: colors.text }}
               placeholder="Brief summary (shown in listings)"
+              placeholderTextColor={colors.textMuted}
               value={form.summary}
               onChangeText={(text) => setForm({ ...form, summary: text })}
               multiline
               numberOfLines={3}
             />
 
-            <Text className="text-sm font-rubik-medium text-black-300 mb-2">
+            <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.text }}>
               Content *
             </Text>
             <TextInput
-              className="border border-primary-200 rounded-lg px-4 py-3 font-rubik mb-4"
+              className="rounded-lg px-4 py-3 font-rubik mb-4"
+              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, color: colors.text }}
               placeholder="Full article content"
+              placeholderTextColor={colors.textMuted}
               value={form.content}
               onChangeText={(text) => setForm({ ...form, content: text })}
               multiline
@@ -542,32 +497,38 @@ export default function AdminBlogManagerScreen() {
               textAlignVertical="top"
             />
 
-            <Text className="text-sm font-rubik-medium text-black-300 mb-2">
+            <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.text }}>
               Category
             </Text>
             <TextInput
-              className="border border-primary-200 rounded-lg px-4 py-3 font-rubik mb-4"
+              className="rounded-lg px-4 py-3 font-rubik mb-4"
+              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, color: colors.text }}
               placeholder="e.g., Market Trends, First-Time Buyers"
+              placeholderTextColor={colors.textMuted}
               value={form.category}
               onChangeText={(text) => setForm({ ...form, category: text })}
             />
 
-            <Text className="text-sm font-rubik-medium text-black-300 mb-2">
+            <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.text }}>
               Tags (comma separated)
             </Text>
             <TextInput
-              className="border border-primary-200 rounded-lg px-4 py-3 font-rubik mb-4"
+              className="rounded-lg px-4 py-3 font-rubik mb-4"
+              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, color: colors.text }}
               placeholder="market, trends, 2024"
+              placeholderTextColor={colors.textMuted}
               value={form.tags}
               onChangeText={(text) => setForm({ ...form, tags: text })}
             />
 
-            <Text className="text-sm font-rubik-medium text-black-300 mb-2">
+            <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.text }}>
               Read Time (minutes)
             </Text>
             <TextInput
-              className="border border-primary-200 rounded-lg px-4 py-3 font-rubik mb-4"
+              className="rounded-lg px-4 py-3 font-rubik mb-4"
+              style={{ borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceElevated, color: colors.text }}
               placeholder="5"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
               value={form.readTimeMinutes}
               onChangeText={(text) =>
@@ -580,17 +541,17 @@ export default function AdminBlogManagerScreen() {
               className="flex flex-row items-center mb-6"
             >
               <View
-                className={`w-6 h-6 border-2 rounded mr-3 items-center justify-center ${
-                  form.isFeatured
-                    ? "bg-primary-300 border-primary-300"
-                    : "border-gray-300"
-                }`}
+                className="w-6 h-6 border-2 rounded mr-3 items-center justify-center"
+                style={{
+                  backgroundColor: form.isFeatured ? colors.primary : "transparent",
+                  borderColor: form.isFeatured ? colors.primary : colors.border
+                }}
               >
                 {form.isFeatured && (
                   <Text className="text-white font-rubik-bold">✓</Text>
                 )}
               </View>
-              <Text className="text-black-300 font-rubik">
+              <Text className="font-rubik" style={{ color: colors.text }}>
                 Featured Article
               </Text>
             </TouchableOpacity>
@@ -604,7 +565,8 @@ export default function AdminBlogManagerScreen() {
                     : "Create Article"
               }
               onPress={handleCreateOrUpdate}
-              className="bg-primary-300 mb-4"
+              className="mb-4"
+              style={{ backgroundColor: colors.primary }}
               disabled={saving}
             />
           </ScrollView>
@@ -613,3 +575,4 @@ export default function AdminBlogManagerScreen() {
     </SafeAreaView>
   );
 }
+

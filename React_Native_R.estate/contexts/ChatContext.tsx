@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback, useRef } from 'react';
 import api from '@/lib/axios-config';
 import { useAuth } from './AuthContext';
 
@@ -54,62 +54,81 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  const isInitialFetch = useRef(true);
 
   // Check if user is an agent/admin
   const isAgent = user?.role === "Agent" || user?.role === "Admin";
 
-  // Fetch conversations from API
-  const fetchConversations = async () => {
-    if (!isAuthenticated || !user) {
+  // Stable refs — these allow fetchConversations to be truly stable
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  const userRef = useRef(user);
+  isAuthenticatedRef.current = isAuthenticated;
+  userRef.current = user;
+
+  // Ref-based state for stable callbacks
+  const convosRef = useRef(conversations);
+  useEffect(() => {
+    convosRef.current = conversations;
+  }, [conversations]);
+
+  // Fetch conversations from API — STABLE (no user/isAuthenticated in deps)
+  const fetchConversations = useCallback(async (showLoading = false) => {
+    if (!isAuthenticatedRef.current || !userRef.current) {
       setConversations([]);
       setTotalUnreadCount(0);
       return;
     }
 
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
+
       const response = await api.get('/api/chat/conversations?filter=active');
       const allConvos: ChatConversation[] = response.data || [];
       setConversations(allConvos);
 
-      // Calculate total unread count
       const unread = allConvos.reduce((sum: number, c: ChatConversation) => sum + c.unreadCount, 0);
       setTotalUnreadCount(unread);
     } catch (error: any) {
       if (error.response?.status === 404) {
-        console.log('Chat API not implemented yet');
+        // Silent - Chat API not implemented
       } else {
         console.error('Error fetching conversations:', error);
       }
       setConversations([]);
       setTotalUnreadCount(0);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  };
+  }, []); // Stable — reads from refs, not from closure
 
-  // Load conversations on auth change or role change
+  // Load conversations on auth change - reduced polling to 2 minutes
   useEffect(() => {
     if (isAuthenticated) {
-      fetchConversations();
-      const interval = setInterval(fetchConversations, 30000);
+      // Initial fetch with loading
+      if (isInitialFetch.current) {
+        isInitialFetch.current = false;
+        fetchConversations(true);
+      }
+      // Background polling every 2 minutes (NOT 30 seconds) - no loading state
+      const interval = setInterval(() => fetchConversations(false), 120000);
       return () => clearInterval(interval);
     } else {
       setConversations([]);
       setTotalUnreadCount(0);
+      isInitialFetch.current = true;
     }
-  }, [isAuthenticated, user?.id, user?.role]);
+  }, [isAuthenticated, fetchConversations]);
 
-  const refreshConversations = async () => {
-    await fetchConversations();
-  };
+  const refreshConversations = useCallback(async () => {
+    await fetchConversations(true);
+  }, [fetchConversations]);
 
-  const getConversation = (conversationId: number) => {
-    return conversations.find(c => c.id === conversationId);
-  };
+  const getConversation = useCallback((conversationId: number) => {
+    return convosRef.current.find(c => c.id === conversationId);
+  }, []); // Stable reference
 
   // Fetch a single conversation directly from API
-  const fetchConversation = async (conversationId: number): Promise<ChatConversation | null> => {
+  const fetchConversation = useCallback(async (conversationId: number): Promise<ChatConversation | null> => {
     try {
       const response = await api.get(`/api/chat/conversations/${conversationId}`);
       return response.data;
@@ -117,9 +136,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error fetching conversation:', error);
       return null;
     }
-  };
+  }, []);
 
-  const getMessages = async (conversationId: number): Promise<ChatMessage[]> => {
+  const getMessages = useCallback(async (conversationId: number): Promise<ChatMessage[]> => {
     try {
       const response = await api.get(`/api/chat/conversations/${conversationId}/messages`);
       return response.data || [];
@@ -127,22 +146,22 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error fetching messages:', error);
       return [];
     }
-  };
+  }, []);
 
-  const sendMessage = async (conversationId: number, content: string): Promise<ChatMessage> => {
+  const sendMessage = useCallback(async (conversationId: number, content: string): Promise<ChatMessage> => {
     try {
       const response = await api.post(`/api/chat/conversations/${conversationId}/messages`, {
         content,
       });
-      await fetchConversations();
+      fetchConversations(false);
       return response.data;
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
     }
-  };
+  }, [fetchConversations]);
 
-  const startConversation = async (
+  const startConversation = useCallback(async (
     propertyId: number,
     agentId: string,
     initialMessage: string
@@ -153,15 +172,15 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         agentId,
         initialMessage,
       });
-      await fetchConversations();
+      fetchConversations(false);
       return response.data;
     } catch (error) {
       console.error('Error starting conversation:', error);
       throw error;
     }
-  };
+  }, [fetchConversations]);
 
-  const markAsRead = async (conversationId: number) => {
+  const markAsRead = useCallback(async (conversationId: number) => {
     try {
       await api.put(`/api/chat/conversations/${conversationId}/read`);
       setConversations(prev =>
@@ -170,50 +189,61 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         )
       );
       setTotalUnreadCount(prev => {
-        const conv = conversations.find(c => c.id === conversationId);
+        const conv = convosRef.current.find(c => c.id === conversationId);
         return Math.max(0, prev - (conv?.unreadCount || 0));
       });
     } catch (error) {
       console.error('Error marking as read:', error);
     }
-  };
+  }, []); // Stable reference
 
-  const hasExistingConversation = (propertyId: number): ChatConversation | undefined => {
-    // Only check for existing conversations where the current user is the "user" party
-    // (Agents don't start conversations, users do)
+  const hasExistingConversation = useCallback((propertyId: number): ChatConversation | undefined => {
     if (!user || isAgent) return undefined;
     const userId = user.id?.toString().toLowerCase();
-    return conversations.find(c => c.propertyId === propertyId && c.userId?.toString().toLowerCase() === userId);
-  };
+    return convosRef.current.find(c => c.propertyId === propertyId && c.userId?.toString().toLowerCase() === userId);
+  }, [user, isAgent]); // Only depends on user identity, not conversation list state
 
-  const deleteConversation = async (conversationId: number) => {
+  const deleteConversation = useCallback(async (conversationId: number) => {
     try {
       await api.delete(`/api/chat/conversations/${conversationId}`);
-      // Remove from local state immediately
       setConversations(prev => prev.filter(c => c.id !== conversationId));
     } catch (error) {
       console.error('Error deleting conversation:', error);
       throw error;
     }
-  };
+  }, []);
+
+  // CRITICAL: Memoize context value to prevent cascading re-renders
+  const value = useMemo(() => ({
+    conversations,
+    loading,
+    totalUnreadCount,
+    refreshConversations,
+    getConversation,
+    fetchConversation,
+    getMessages,
+    sendMessage,
+    startConversation,
+    markAsRead,
+    hasExistingConversation,
+    deleteConversation,
+  }), [
+    conversations,
+    loading,
+    totalUnreadCount,
+    refreshConversations,
+    getConversation,
+    fetchConversation,
+    getMessages,
+    sendMessage,
+    startConversation,
+    markAsRead,
+    hasExistingConversation,
+    deleteConversation,
+  ]);
 
   return (
-    <ChatContext.Provider
-      value={{
-        conversations,
-        loading,
-        totalUnreadCount,
-        refreshConversations,
-        getConversation,
-        fetchConversation,
-        getMessages,
-        sendMessage,
-        startConversation,
-        markAsRead,
-        hasExistingConversation,
-        deleteConversation,
-      }}
-    >
+    <ChatContext.Provider value={value}>
       {children}
     </ChatContext.Provider>
   );

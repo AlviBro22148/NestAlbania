@@ -137,6 +137,30 @@ namespace ReState.Controllers
 
 
 
+        // GET: api/likedproperties/ids
+        // Returns just the IDs of liked properties (lightweight for batch checking)
+        [HttpGet("ids")]
+        public async Task<IActionResult> GetLikedPropertyIds()
+        {
+            try
+            {
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                var likedPropertyIds = await _context.LikedProperties
+                    .Where(lp => lp.UserId == userId)
+                    .Select(lp => lp.PropertyId)
+                    .ToListAsync();
+
+                return Ok(likedPropertyIds);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving liked property IDs", error = ex.Message });
+            }
+        }
+
         // GET: api/likedproperties/check/{propertyId}
         [HttpGet("check/{propertyId}")]
         public async Task<IActionResult> CheckIfLiked(int propertyId)

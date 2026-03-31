@@ -1,14 +1,24 @@
-import { Image, Text, TouchableOpacity, View } from "react-native";
-import { useTranslation } from "react-i18next";
-import React, { memo, useState, useCallback, useEffect } from "react";
+import { Text, TouchableOpacity, View, Alert } from "react-native";
 import { Image as ExpoImage } from "expo-image";
-import api from "@/lib/axios-config";
+import { useTranslation } from "react-i18next";
+import React, { memo, useCallback, useMemo } from "react";
 import icons from "@/constants/icons";
 import images from "@/constants/images";
 import { useComparison } from "@/contexts/ComparisonContext";
+import { useLikedProperties } from "@/contexts/LikedPropertiesContext";
+import { AnimatedLikeButtonCard } from "./AnimatedLikeButton";
 
-// Blurhash placeholder for faster perceived loading
+import { formatCurrency } from "@/lib/utils";
+// Blurhash for instant placeholder (L1 cache visual)
 const BLURHASH = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
+
+// Pure function - moved outside component to avoid recreation
+const getEcoScoreColor = (score: number) => {
+  if (score >= 80) return "#10B981"; // Green
+  if (score >= 60) return "#84CC16"; // Light green
+  if (score >= 40) return "#EAB308"; // Yellow
+  return "#F59E0B"; // Orange
+};
 
 interface GreenHomeProperty {
   id: number;
@@ -26,56 +36,32 @@ interface GreenHomeProperty {
 
 interface GreenHomeCardProps {
   property: GreenHomeProperty;
-  onPress?: () => void;
+  onPress?: (id: number) => void;
 }
 
 export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: GreenHomeCardProps) {
-  const [isLiked, setIsLiked] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasCheckedLike, setHasCheckedLike] = useState(false);
+  const handlePress = useCallback((_event?: any) => {
+    onPress?.(property.id);
+  }, [onPress, property.id]);
   const { t } = useTranslation();
-
+  const { isLiked, toggleLike } = useLikedProperties();
   const { isInComparison, addToComparison, removeFromComparison } = useComparison();
+
+  const liked = isLiked(property.id);
   const inComparison = isInComparison(property.id);
 
-  // Only check like status once on mount
-  useEffect(() => {
-    if (!hasCheckedLike && property) {
-      let isMounted = true;
-      api.get(`/api/likedproperties/check/${property.id}`)
-        .then(response => {
-          if (isMounted) {
-            setIsLiked(response.data.isLiked);
-            setHasCheckedLike(true);
-          }
-        })
-        .catch(() => {
-          // Silently fail - not critical
-        });
-      return () => { isMounted = false; };
-    }
-  }, [property?.id, hasCheckedLike]);
-
-  const toggleLike = useCallback(async (e: any) => {
-    e.stopPropagation();
-    if (isLoading) return;
-
-    setIsLoading(true);
-    const previousState = isLiked;
-    setIsLiked(!isLiked);
-
+  const handleToggleLike = useCallback(async () => {
     try {
-      if (isLiked) {
-        await api.delete(`/api/likedproperties/${property.id}`);
-      } else {
-        await api.post(`/api/likedproperties/${property.id}`);
+      await toggleLike(property.id);
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        Alert.alert(
+          t("common.error"),
+          error.response?.data?.message || t("errors.updateFailed")
+        );
       }
-    } catch (error) {
-      setIsLiked(previousState);
-    } finally {
-      setIsLoading(false);
     }
-  }, [property.id, isLiked, isLoading]);
+  }, [property.id, toggleLike, t]);
 
   const handleComparisonToggle = useCallback((e: any) => {
     e.stopPropagation();
@@ -86,13 +72,6 @@ export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: 
     }
   }, [property.id, inComparison, addToComparison, removeFromComparison]);
 
-  const getEcoScoreColor = useCallback((score: number) => {
-    if (score >= 80) return "#10B981"; // Green
-    if (score >= 60) return "#84CC16"; // Light green
-    if (score >= 40) return "#EAB308"; // Yellow
-    return "#F59E0B"; // Orange
-  }, []);
-
   const getEcoScoreLabel = useCallback((score: number) => {
     if (score >= 80) return t("greenHomes.excellent");
     if (score >= 60) return t("greenHomes.good");
@@ -100,26 +79,48 @@ export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: 
     return t("greenHomes.basic");
   }, [t]);
 
+  const imageUri = property.images?.[0] || "";
+
+  // Memoize certifications string to avoid recalculating on every render
+  const certifications = useMemo(() => [
+    property.hasLEEDCertification && `LEED ${property.leedLevel || ""}`,
+    property.hasEnergyStarCertification && "Energy Star",
+    property.hasSolarPanels && "Solar Panels",
+  ].filter(Boolean).join(", "), [
+    property.hasLEEDCertification,
+    property.leedLevel,
+    property.hasEnergyStarCertification,
+    property.hasSolarPanels,
+  ]);
+
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={handlePress}
       className="flex flex-col items-start w-72 h-96 relative mr-4"
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={`${property.title}, Green home, Eco score ${property.ecoScore} out of 100, ${getEcoScoreLabel(property.ecoScore)}, ${formatCurrency(property.price)}${certifications ? `, ${certifications}` : ""}`}
+      accessibilityHint="Double tap to view green home details"
     >
-      {/* Main Image - Using expo-image for better caching */}
+      {/* Main Image - expo-image with L1+L2 caching */}
       <ExpoImage
-        source={{ uri: property.images[0] }}
-        style={{ width: "100%", height: "100%", borderRadius: 24 }}
+        source={{ uri: imageUri }}
+        className="w-full h-full rounded-3xl absolute"
         contentFit="cover"
-        placeholder={BLURHASH}
-        transition={200}
+        placeholder={{ blurhash: BLURHASH }}
+        placeholderContentFit="cover"
+        transition={0}
         cachePolicy="memory-disk"
+        recyclingKey={imageUri}
+        accessibilityIgnoresInvertColors
       />
 
       {/* Gradient Overlay */}
-      <Image
+      <ExpoImage
         source={images.cardGradient}
-        className="size-full rounded-3xl absolute bottom-0"
+        style={{ width: "100%", height: "100%", borderRadius: 24, position: "absolute", bottom: 0 }}
+        contentFit="cover"
+        accessibilityIgnoresInvertColors
       />
 
       {/* Green Home Badge */}
@@ -133,6 +134,7 @@ export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: 
           shadowRadius: 8,
           elevation: 8,
         }}
+        accessibilityLabel="Green home eco-friendly property"
       >
         <Text className="text-lg mr-1">🌿</Text>
         <Text className="text-sm font-rubik-extrabold text-white">
@@ -144,6 +146,7 @@ export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: 
       <View
         className="absolute top-16 left-4 px-3 py-2 rounded-full"
         style={{ backgroundColor: getEcoScoreColor(property.ecoScore) }}
+        accessibilityLabel={`Eco score ${property.ecoScore} out of 100, ${getEcoScoreLabel(property.ecoScore)}`}
       >
         <Text className="text-xs font-rubik-bold text-white">
           ⚡ {property.ecoScore}/100 - {getEcoScoreLabel(property.ecoScore)}
@@ -153,14 +156,14 @@ export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: 
       {/* Certifications Row */}
       <View className="absolute top-28 left-4 flex-row gap-2">
         {property.hasLEEDCertification && (
-          <View className="bg-white/95 px-2 py-1 rounded-full">
+          <View className="bg-white/95 px-2 py-1 rounded-full" accessibilityLabel={`LEED ${property.leedLevel || ""} certified`}>
             <Text className="text-xs font-rubik-bold text-green-700">
               LEED {property.leedLevel || ""}
             </Text>
           </View>
         )}
         {property.hasEnergyStarCertification && (
-          <View className="bg-white/95 px-2 py-1 rounded-full">
+          <View className="bg-white/95 px-2 py-1 rounded-full" accessibilityLabel="Energy Star certified">
             <Text className="text-xs font-rubik-bold text-blue-700">
               ⭐ Energy Star
             </Text>
@@ -170,30 +173,29 @@ export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: 
 
       {/* Top Right Actions */}
       <View className="absolute top-4 right-4 flex-col gap-2">
-        <TouchableOpacity
-          onPress={toggleLike}
-          disabled={isLoading}
-          className="p-2.5 rounded-full bg-white/60 shadow-md"
-          activeOpacity={0.7}
-        >
-          <Image
-            source={icons.heart}
-            className="size-7"
-            tintColor={isLiked ? "#FF0000" : "#FFFFFF"}
-          />
-        </TouchableOpacity>
+        {/* Animated Like Button */}
+        <AnimatedLikeButtonCard
+          isLiked={liked}
+          onPress={handleToggleLike}
+          size="medium"
+          accessibilityLabel={liked ? "Remove from favorites" : "Add to favorites"}
+        />
 
         <TouchableOpacity
           onPress={handleComparisonToggle}
-          className={`p-2.5 rounded-full shadow-md ${
+          className={`w-10 h-10 rounded-full shadow-md items-center justify-center ${
             inComparison ? "bg-primary-300" : "bg-white/60"
           }`}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={inComparison ? "Remove from comparison" : "Add to comparison"}
+          accessibilityHint="Compare this property with others"
         >
-          <Image
+          <ExpoImage
             source={icons.comparison}
-            className="size-6"
+            style={{ width: 24, height: 24 }}
             tintColor={inComparison ? "#FFFFFF" : "#191D31"}
+            contentFit="contain"
           />
         </TouchableOpacity>
       </View>
@@ -210,7 +212,7 @@ export const GreenHomeCard = memo(function GreenHomeCard({ property, onPress }: 
 
         <View className="flex flex-row items-center justify-between w-full mt-3">
           <Text className="text-2xl font-rubik-extrabold text-white shadow-lg">
-            ${property.price.toLocaleString()}
+            {formatCurrency(property.price)}
           </Text>
 
           {property.hasSolarPanels && (

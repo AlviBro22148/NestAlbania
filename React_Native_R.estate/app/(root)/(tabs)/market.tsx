@@ -1,200 +1,462 @@
-import { useAlert } from "@/contexts/AlertContext";
-import api from "@/lib/axios-config";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useMarketData } from "@/hooks/useMarketData";
+import { shadows, shadowsDark } from "@/constants/shadows";
+import { radius, spacing, layout } from "@/constants/spacing";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useState } from "react";
+import React, { useState, memo, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Dimensions,
+  Pressable,
   RefreshControl,
-  ScrollView,
   Text,
-  TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
+import Animated, {
+  FadeInDown,
+} from "react-native-reanimated";
 import { BarChart, LineChart } from "react-native-chart-kit";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { InteractionManager } from "react-native";
+import { formatCurrency, formatPriceShort } from "@/lib/utils";
+
+// Memoized Chart components to prevent expensive re-renders
+const MemoizedBarChart = memo(BarChart);
+const MemoizedLineChart = memo(LineChart);
 
 const { width } = Dimensions.get("window");
 
-interface MarketOverview {
-  totalProperties: number;
-  availableProperties: number;
-  soldProperties: number;
-  averagePrice: number;
-  medianPrice: number;
-  lowestPrice: number;
-  highestPrice: number;
-}
+// Tab button component
+// PERFORMANCE: Removed spring animations - using simple opacity feedback
+const TabButton = memo(function TabButton({
+  label,
+  icon,
+  isActive,
+  onPress,
+  colors,
+}: {
+  label: string;
+  icon: string;
+  isActive: boolean;
+  onPress: () => void;
+  colors: any;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.tabButton,
+        {
+          backgroundColor: isActive ? colors.primary : colors.surfaceElevated,
+          borderWidth: isActive ? 0 : 1,
+          borderColor: colors.border,
+        },
+        pressed && styles.tabButtonPressed,
+      ]}
+    >
+      <Ionicons
+        name={icon as any}
+        size={16}
+        color={isActive ? "white" : colors.icon}
+      />
+      <Text
+        style={[
+          styles.tabButtonText,
+          { color: isActive ? "white" : colors.text },
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
 
-interface PropertyTypeData {
-  propertyType: string;
-  averagePrice: number;
-  count: number;
-  minPrice: number;
-  maxPrice: number;
-}
+// Market Overview Section Component
+const MarketOverview = memo(({ overview, pricesByType, colors, isDark, cardShadow, formatPrice, chartConfig }: any) => {
+  const chartData = useMemo(() => ({
+    labels: pricesByType.map((item: any) => item.propertyType.substring(0, 6)),
+    datasets: [{ data: pricesByType.map((item: any) => item.averagePrice) }],
+  }), [pricesByType]);
 
-interface TrendData {
-  trends: { month: string; averagePrice: number; count: number }[];
-  trendPercentage: number | null;
-  trendDirection: string;
-}
+  return (
+    <View>
+      <View style={styles.statsGrid}>
+        <StatCard
+          icon="home"
+          value={overview.totalProperties}
+          label="Properties"
+          badge="Total"
+          colors={colors}
+          cardShadow={cardShadow}
+        />
+        <StatCard
+          icon="checkmark-circle"
+          value={overview.availableProperties}
+          label="For Sale"
+          badge="Available"
+          iconColor="#10B981"
+          badgeBg={isDark ? "rgba(16, 185, 129, 0.2)" : "#D1FAE5"}
+          colors={colors}
+          cardShadow={cardShadow}
+        />
+        <StatCard
+          icon="cash"
+          value={formatPrice(overview.averagePrice)}
+          label="Avg Price"
+          badge="Avg"
+          iconColor="#F59E0B"
+          badgeBg={isDark ? "rgba(245, 158, 11, 0.2)" : "#FEF3C7"}
+          isSmall
+          colors={colors}
+          cardShadow={cardShadow}
+        />
+        <StatCard
+          icon="trending-up"
+          value={formatPrice(overview.medianPrice)}
+          label="Median Price"
+          badge="Median"
+          iconColor="#8B5CF6"
+          badgeBg={isDark ? "rgba(139, 92, 246, 0.2)" : "#EDE9FE"}
+          isSmall
+          colors={colors}
+          cardShadow={cardShadow}
+        />
+      </View>
 
-interface ForecastData {
-  forecast?: string | { month: string; projectedPrice: number }[];
-  message?: string;
-  currentAveragePrice: number;
-  growthRate: number;
-  recommendation: string;
-}
+      <View style={[styles.overviewContainer, { backgroundColor: colors.surface }, cardShadow]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>💰 Price Range</Text>
+        <View className="flex-row justify-between items-center">
+          <View>
+            <Text className="text-xs font-rubik mb-1" style={{ color: colors.textSecondary }}>Lowest</Text>
+            <Text className="text-xl font-rubik-bold text-green-500">{formatPrice(overview.lowestPrice)}</Text>
+          </View>
+          <View className="h-16 w-px" style={{ backgroundColor: colors.border }} />
+          <View>
+            <Text className="text-xs font-rubik mb-1" style={{ color: colors.textSecondary }}>Highest</Text>
+            <Text className="text-xl font-rubik-bold text-red-500">{formatPrice(overview.highestPrice)}</Text>
+          </View>
+        </View>
+      </View>
 
-const MarketScreen = () => {
+      {pricesByType.length > 0 && (
+        <View style={[styles.overviewContainer, { backgroundColor: colors.surface }, cardShadow]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>🏘️ Average Prices by Type</Text>
+          <MemoizedBarChart
+            data={chartData}
+            width={width - 72}
+            height={220}
+            yAxisLabel="$"
+            chartConfig={chartConfig}
+            formatYLabel={(value) => formatPriceShort(parseFloat(value) * 1000)}
+            style={{ borderRadius: 16 }}
+            showValuesOnTopOfBars
+            fromZero
+          />
+        </View>
+      )}
+
+      {pricesByType.length > 0 && (
+        <View style={[styles.overviewContainer, { backgroundColor: colors.surface }, cardShadow]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>📊 Detailed Breakdown</Text>
+          {pricesByType.map((item: any, index: number) => (
+            <View key={index} className="py-3" style={{ borderBottomWidth: index !== pricesByType.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+              <View className="flex-row justify-between items-center mb-1">
+                <Text className="font-rubik-bold" style={{ color: colors.text }}>{item.propertyType}</Text>
+                <Text className="font-rubik-bold" style={{ color: colors.primary }}>{formatPrice(item.averagePrice)}</Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-xs font-rubik" style={{ color: colors.textSecondary }}>{item.count} properties</Text>
+                <Text className="text-xs font-rubik" style={{ color: colors.textSecondary }}>{formatPrice(item.minPrice)} - {formatPrice(item.maxPrice)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+});
+
+// Stat Card Sub-component
+const StatCard = memo(({ icon, value, label, badge, iconColor, badgeBg, isSmall, colors, cardShadow }: any) => (
+  <View style={[styles.statCard, { backgroundColor: colors.surface }, cardShadow]}>
+    <View style={styles.statCardHeader}>
+      <View style={[styles.statIconCircle, { backgroundColor: badgeBg || colors.primaryLight }]}>
+        <Ionicons name={icon as any} size={20} color={iconColor || colors.primary} />
+      </View>
+      <View style={[styles.statBadge, { backgroundColor: badgeBg || colors.primaryLight }]}>
+        <Text style={[styles.statBadgeText, { color: iconColor || colors.primary }]}>{badge}</Text>
+      </View>
+    </View>
+    <Text style={[isSmall ? styles.statValueSmall : styles.statValue, { color: colors.text }]}>{value}</Text>
+    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+  </View>
+));
+
+// Market Trends Section Component
+const MarketTrends = memo(({ trends, colors, isDark, cardShadow, formatPrice, chartConfig }: any) => {
+  const chartData = useMemo(() => ({
+    labels: trends.trends.map((t: any) => t.month.substring(5, 7)),
+    datasets: [{ data: trends.trends.map((t: any) => t.averagePrice) }],
+  }), [trends]);
+
+  if (trends.trends.length === 0) {
+    return (
+      <View style={[styles.overviewContainer, { backgroundColor: colors.surface }, cardShadow]}>
+        <View className="items-center py-8">
+          <Ionicons name="analytics-outline" size={64} color={colors.textMuted} />
+          <Text className="text-lg font-rubik-bold mt-4 text-center" style={{ color: colors.text }}>No Trend Data</Text>
+          <Text className="text-sm font-rubik mt-2 text-center" style={{ color: colors.textSecondary }}>Not enough recent data to show trends</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <View className="p-5 rounded-2xl shadow-sm mb-6" style={{ backgroundColor: colors.surface }}>
+        <Text className="text-lg font-rubik-bold mb-4" style={{ color: colors.text }}>📈 Market Trend (Last 6 Months)</Text>
+        {trends.trendPercentage !== null && (
+          <View className="flex-row items-center justify-center mb-4">
+            <Ionicons
+              name={trends.trendDirection === "up" ? "trending-up" : trends.trendDirection === "down" ? "trending-down" : "remove"}
+              size={32}
+              color={trends.trendDirection === "up" ? "#10B981" : trends.trendDirection === "down" ? "#EF4444" : "#F59E0B"}
+            />
+            <Text className={`text-3xl font-rubik-bold ml-2 ${trends.trendDirection === "up" ? "text-green-600" : trends.trendDirection === "down" ? "text-red-600" : "text-yellow-600"}`}>
+              {trends.trendPercentage > 0 ? "+" : ""}{trends.trendPercentage}%
+            </Text>
+          </View>
+        )}
+        <MemoizedLineChart
+          data={chartData}
+          width={width - 72}
+          height={220}
+          yAxisLabel="$"
+          chartConfig={{ ...chartConfig, propsForDots: { r: "4", strokeWidth: "2", stroke: colors.primary } }}
+          formatYLabel={(value) => formatPriceShort(parseFloat(value) * 1000)}
+          bezier
+          style={{ borderRadius: 16, marginTop: 10 }}
+        />
+      </View>
+
+      <View className="p-5 rounded-2xl shadow-sm" style={{ backgroundColor: colors.surface }}>
+        <Text className="text-lg font-rubik-bold mb-4" style={{ color: colors.text }}>📅 Monthly Breakdown</Text>
+        {trends.trends.map((item: any, index: number) => (
+          <View key={index} className="py-3 flex-row justify-between items-center" style={{ borderBottomWidth: index !== trends.trends.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+            <View>
+              <Text className="font-rubik-bold" style={{ color: colors.text }}>
+                {new Date(item.month + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </Text>
+              <Text className="text-xs font-rubik mt-1" style={{ color: colors.textSecondary }}>{item.count} listings</Text>
+            </View>
+            <Text className="font-rubik-bold text-lg" style={{ color: colors.primary }}>{formatPrice(item.averagePrice)}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+});
+
+// Market Forecast Section Component
+const MarketForecast = memo(({ forecast, colors, isDark, cardShadow, formatPrice, chartConfig }: any) => {
+  const chartData = useMemo(() => {
+    if (!Array.isArray(forecast.forecast)) return null;
+    return {
+      labels: forecast.forecast.map((f: any) => new Date(f.month + "-01").toLocaleDateString("en-US", { month: "short" })),
+      datasets: [{ data: forecast.forecast.map((f: any) => f.projectedPrice) }],
+    };
+  }, [forecast]);
+
+  if (forecast.forecast === "insufficient_data") {
+    return (
+      <View style={[styles.overviewContainer, { backgroundColor: colors.surface }, cardShadow]}>
+        <View className="items-center py-8">
+          <Ionicons name="analytics-outline" size={64} color={colors.textMuted} />
+          <Text className="text-lg font-rubik-bold mt-4 text-center" style={{ color: colors.text }}>Insufficient Data</Text>
+          <Text className="text-sm font-rubik mt-2 text-center" style={{ color: colors.textSecondary }}>{forecast.message || "Not enough data for forecast"}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <View className="p-5 rounded-2xl shadow-sm mb-6" style={{ backgroundColor: colors.surface }}>
+        <Text className="text-lg font-rubik-bold mb-4" style={{ color: colors.text }}>🎯 Current Market Status</Text>
+        <View className="items-center py-4">
+          <Text className="text-sm font-rubik mb-2" style={{ color: colors.textSecondary }}>Average Price</Text>
+          <Text className="text-3xl font-rubik-bold" style={{ color: colors.primary }}>{formatPrice(forecast.currentAveragePrice)}</Text>
+          <View className="flex-row items-center mt-3">
+            <Ionicons name={forecast.growthRate >= 0 ? "trending-up" : "trending-down"} size={20} color={forecast.growthRate >= 0 ? "#10B981" : "#EF4444"} />
+            <Text className={`text-lg font-rubik-bold ml-2 ${forecast.growthRate >= 0 ? "text-green-500" : "text-red-500"}`}>
+              {forecast.growthRate > 0 ? "+" : ""}{forecast.growthRate}%
+            </Text>
+            <Text className="text-sm font-rubik ml-2" style={{ color: colors.textSecondary }}>growth rate</Text>
+          </View>
+        </View>
+      </View>
+
+      <View className={`p-5 rounded-2xl shadow-sm mb-6 ${forecast.recommendation?.includes("buyer") ? "bg-green-50 border border-green-200" : forecast.recommendation?.includes("buy") ? "bg-blue-50 border border-blue-200" : "bg-yellow-50 border border-yellow-200"}`}>
+        <View className="flex-row items-center mb-2">
+          <Ionicons name={forecast.recommendation?.includes("buyer") ? "trending-up" : forecast.recommendation?.includes("buy") ? "cart" : "pause-circle"} size={24} color={forecast.recommendation?.includes("buyer") ? "#10B981" : forecast.recommendation?.includes("buy") ? "#0061FF" : "#F59E0B"} />
+          <Text className={`text-lg font-rubik-bold ml-2 ${forecast.recommendation?.includes("buyer") ? "text-green-700" : forecast.recommendation?.includes("buy") ? "text-blue-700" : "text-yellow-700"}`}>{forecast.recommendation}</Text>
+        </View>
+        <Text className="text-sm font-rubik text-gray-700 mt-1">{forecast.message || "Market conditions are stable."}</Text>
+      </View>
+
+      {chartData && (
+        <View className="p-5 rounded-2xl shadow-sm mb-6" style={{ backgroundColor: colors.surface }}>
+          <Text className="text-lg font-rubik-bold mb-4" style={{ color: colors.text }}>🔮 3-Month Price Projection</Text>
+          <MemoizedBarChart
+            data={chartData}
+            width={width - 72}
+            height={220}
+            yAxisLabel="$"
+            yAxisSuffix="k"
+            chartConfig={{ ...chartConfig, color: (opacity = 1) => `rgba(139, 92, 246, ${opacity})` }}
+            style={{ borderRadius: 16 }}
+            showValuesOnTopOfBars
+            fromZero
+          />
+        </View>
+      )}
+
+      {Array.isArray(forecast.forecast) && (
+        <View className="p-5 rounded-2xl shadow-sm" style={{ backgroundColor: colors.surface }}>
+          <Text className="text-lg font-rubik-bold mb-4" style={{ color: colors.text }}>📊 Projected Prices</Text>
+          {forecast.forecast.map((item: any, index: number) => (
+            <View key={index} className="py-3 flex-row justify-between items-center" style={{ borderBottomWidth: index !== forecast.forecast.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+              <Text className="font-rubik-bold" style={{ color: colors.text }}>
+                {new Date(item.month + "-01").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </Text>
+              <Text className="font-rubik-bold text-purple-500 text-lg">{formatPrice(item.projectedPrice)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+});
+
+const MarketScreen = memo(function MarketScreen() {
   const { t } = useTranslation();
-  const { showAlert } = useAlert();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [overview, setOverview] = useState<MarketOverview | null>(null);
-  const [pricesByType, setPricesByType] = useState<PropertyTypeData[]>([]);
-  const [trends, setTrends] = useState<TrendData | null>(null);
-  const [forecast, setForecast] = useState<ForecastData | null>(null);
+  const { colors, isDark } = useTheme();
   const [selectedTab, setSelectedTab] = useState<
     "overview" | "trends" | "forecast"
   >("overview");
-  const [error, setError] = useState<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchMarketData();
-    }, [])
+  // Use cached market data hook - INSTANT from cache
+  const { data, isLoading, isFetching, refetch, error } = useMarketData();
+
+  const overview = data?.overview ?? null;
+  const pricesByType = data?.pricesByType ?? [];
+  const trends = data?.trends ?? null;
+  const forecast = data?.forecast ?? null;
+
+  const cardShadow = isDark ? shadowsDark.sm : shadows.sm;
+
+  const onRefresh = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
+  const formatPrice = useCallback((price: number) => {
+    return formatCurrency(price);
+  }, []);
+
+  // FIX: Moved useMemo above early returns so hooks are always called in the same order
+  const chartConfig = useMemo(
+    () => ({
+      backgroundColor: colors.surface,
+      backgroundGradientFrom: colors.surface,
+      backgroundGradientTo: colors.surface,
+      decimalPlaces: 0,
+      color: (opacity = 1) =>
+        isDark
+          ? `rgba(75, 123, 236, ${opacity})`
+          : `rgba(30, 58, 95, ${opacity})`,
+      labelColor: (opacity = 1) =>
+        isDark
+          ? `rgba(248, 250, 252, ${opacity})`
+          : `rgba(26, 31, 54, ${opacity})`,
+      style: { borderRadius: 16 },
+      propsForLabels: { fontSize: 10 },
+    }),
+    [colors.surface, isDark],
   );
 
-  const fetchMarketData = async () => {
-    try {
-      setError(null);
-      console.log("Starting to fetch market data...");
-
-      // Test the connection first
-      try {
-        const testResponse = await api.get("/api/MarketAnalysis/test");
-        console.log("Test endpoint response:", testResponse.data);
-      } catch (testError: any) {
-        console.error(
-          "Test endpoint failed:",
-          testError.response?.status,
-          testError.message
-        );
-      }
-
-      // Fetch all endpoints with individual error handling
-      const results = await Promise.allSettled([
-        api.get("/api/MarketAnalysis/overview"),
-        api.get("/api/MarketAnalysis/by-property-type"),
-        api.get("/api/MarketAnalysis/trends"),
-        api.get("/api/MarketAnalysis/forecast"),
-      ]);
-
-      console.log(
-        "All requests completed:",
-        results.map((r, i) => ({
-          endpoint: i,
-          status: r.status,
-          ...(r.status === "rejected" && { reason: r.reason?.message }),
-        }))
-      );
-
-      // Process overview
-      if (results[0].status === "fulfilled") {
-        setOverview(results[0].value.data);
-        console.log("Overview loaded:", results[0].value.data);
-      } else {
-        console.error("Overview failed:", results[0].reason);
-        throw new Error(
-          `Overview: ${results[0].reason?.message || "Unknown error"}`
-        );
-      }
-
-      // Process property types
-      if (results[1].status === "fulfilled") {
-        setPricesByType(results[1].value.data);
-        console.log("Property types loaded:", results[1].value.data.length);
-      } else {
-        console.error("Property types failed:", results[1].reason);
-        setPricesByType([]);
-      }
-
-      // Process trends
-      if (results[2].status === "fulfilled") {
-        setTrends(results[2].value.data);
-        console.log("Trends loaded:", results[2].value.data);
-      } else {
-        console.error("Trends failed:", results[2].reason);
-        setTrends({
-          trends: [],
-          trendPercentage: null,
-          trendDirection: "stable",
-        });
-      }
-
-      // Process forecast
-      if (results[3].status === "fulfilled") {
-        setForecast(results[3].value.data);
-        console.log("Forecast loaded:", results[3].value.data);
-      } else {
-        console.error("Forecast failed:", results[3].reason);
-        setForecast({
-          forecast: "insufficient_data",
-          message: "Unable to load forecast",
-          currentAveragePrice: 0,
-          growthRate: 0,
-          recommendation: "Data unavailable",
-        });
-      }
-    } catch (error: any) {
-      console.error("Critical error fetching market data:", error);
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to load market data";
-
-      setError(errorMessage);
-
-      showAlert({
-        type: "error",
-        title: "Error Loading Data",
-        message: `${errorMessage}\n\nStatus: ${error.response?.status || "Unknown"}\nURL: ${error.config?.url || "Unknown"}`,
-        buttons: [
-          { text: "Retry", onPress: () => fetchMarketData() },
-          { text: "Cancel", style: "cancel" },
-        ],
+  // Defer rendering of heavy components (charts) to keep interactions smooth
+  const [canRenderCharts, setCanRenderCharts] = useState(false);
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      InteractionManager.runAfterInteractions(() => {
+        setCanRenderCharts(true);
       });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    }, 800); // Wait longer for UI to settle
+    return () => clearTimeout(timer);
+  }, []);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchMarketData();
-  };
-
-  const formatPrice = (price: number) => {
-    if (!price || isNaN(price)) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
-
-  if (loading) {
+  // Memoized Chart sections to prevent whole-screen re-renders
+  const OverviewSection = useMemo(() => {
+    if (!overview || !canRenderCharts) return null;
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#0061FF" />
-          <Text className="text-gray-600 mt-4 font-rubik">
+      <Animated.View entering={FadeInDown.duration(400)}>
+        <MarketOverview
+          overview={overview}
+          pricesByType={pricesByType}
+          colors={colors}
+          isDark={isDark}
+          cardShadow={cardShadow}
+          formatPrice={formatPrice}
+          chartConfig={chartConfig}
+        />
+      </Animated.View>
+    );
+  }, [overview, pricesByType, canRenderCharts, colors, isDark, cardShadow, formatPrice, chartConfig]);
+
+  const TrendsSection = useMemo(() => {
+    if (!trends || !canRenderCharts) return null;
+    return (
+      <Animated.View entering={FadeInDown.duration(400)}>
+        <MarketTrends
+          trends={trends}
+          colors={colors}
+          isDark={isDark}
+          cardShadow={cardShadow}
+          formatPrice={formatPrice}
+          chartConfig={chartConfig}
+        />
+      </Animated.View>
+    );
+  }, [trends, canRenderCharts, colors, isDark, cardShadow, formatPrice, chartConfig]);
+
+  const ForecastSection = useMemo(() => {
+    if (!forecast || !canRenderCharts) return null;
+    return (
+      <Animated.View entering={FadeInDown.duration(400)}>
+        <MarketForecast
+          forecast={forecast}
+          colors={colors}
+          isDark={isDark}
+          cardShadow={cardShadow}
+          formatPrice={formatPrice}
+          chartConfig={chartConfig}
+        />
+      </Animated.View>
+    );
+  }, [forecast, canRenderCharts, colors, isDark, cardShadow, formatPrice, chartConfig]);
+
+  // Only show loading on initial load (no cached data)
+  if (isLoading && !overview) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
             {t("market.loading")}
           </Text>
         </View>
@@ -204,611 +466,259 @@ const MarketScreen = () => {
 
   if (error && !overview) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-1 items-center justify-center px-6">
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.errorContainer}>
           <Ionicons name="warning" size={64} color="#EF4444" />
-          <Text className="text-xl font-rubik-bold text-black-300 mt-4 text-center">
+          <Text style={[styles.errorTitle, { color: colors.text }]}>
             {t("market.errorLoading")}
           </Text>
-          <Text className="text-sm text-gray-600 font-rubik mt-2 text-center">
-            {error}
+          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+            {error instanceof Error ? error.message : "Unknown error"}
           </Text>
-          <TouchableOpacity
-            onPress={fetchMarketData}
-            className="bg-primary-300 px-6 py-3 rounded-xl mt-6"
+          <Pressable
+            onPress={() => refetch()}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
           >
-            <Text className="text-white font-rubik-bold">{t("common.reset")}</Text>
-          </TouchableOpacity>
+            <Text style={styles.retryButtonText}>{t("common.reset")}</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
+  const tabs = [
+    { key: "overview", labelKey: "market.overview", icon: "stats-chart" },
+    { key: "trends", labelKey: "market.marketTrends", icon: "trending-up" },
+    { key: "forecast", labelKey: "market.priceChange", icon: "telescope" },
+  ];
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       {/* Header */}
-      <View className="px-6 py-4 bg-white border-b border-gray-200">
-        <Text className="text-2xl font-rubik-bold text-black-300">
-          📊 {t("market.title")}
-        </Text>
-        <Text className="text-sm font-rubik text-gray-500 mt-1">
-          {t("market.subtitle")}
-        </Text>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.headerContent}>
+          <View
+            style={[styles.accentLine, { backgroundColor: colors.accent }]}
+          />
+          <View>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              {t("market.title")}
+            </Text>
+            <Text
+              style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+            >
+              {t("market.subtitle")}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Tab Selector */}
-      <View className="px-4 py-3 bg-white border-b border-gray-100">
-        <ScrollView
+      <View
+        style={[
+          styles.tabContainer,
+          { backgroundColor: colors.surface, borderColor: colors.borderLight },
+        ]}
+      >
+        <Animated.ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8 }}
+          contentContainerStyle={styles.tabScrollContent}
         >
-          {[
-            { key: "overview", labelKey: "market.overview", icon: "stats-chart" },
-            { key: "trends", labelKey: "market.marketTrends", icon: "trending-up" },
-            { key: "forecast", labelKey: "market.priceChange", icon: "telescope" },
-          ].map((tab) => (
-            <TouchableOpacity
+          {tabs.map((tab) => (
+            <TabButton
               key={tab.key}
+              label={t(tab.labelKey)}
+              icon={tab.icon}
+              isActive={selectedTab === tab.key}
               onPress={() => setSelectedTab(tab.key as any)}
-              className={`px-4 py-2.5 rounded-full flex-row items-center ${
-                selectedTab === tab.key
-                  ? "bg-primary-300"
-                  : "bg-gray-100 border border-gray-200"
-              }`}
-            >
-              <Ionicons
-                name={tab.icon as any}
-                size={16}
-                color={selectedTab === tab.key ? "white" : "#666876"}
-              />
-              <Text
-                className={`ml-2 text-sm font-rubik-medium ${
-                  selectedTab === tab.key ? "text-white" : "text-gray-700"
-                }`}
-                numberOfLines={1}
-              >
-                {t(tab.labelKey)}
-              </Text>
-            </TouchableOpacity>
+              colors={colors}
+            />
           ))}
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={isFetching}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
       >
-        {/* Overview Tab */}
-        {selectedTab === "overview" && overview && (
-          <>
-            {/* Key Stats Grid */}
-            <View className="flex-row flex-wrap gap-3 mb-6">
-              <View className="bg-white p-4 rounded-2xl flex-1 min-w-[48%] shadow-sm">
-                <View className="flex-row items-center justify-between mb-2">
-                  <Ionicons name="home" size={24} color="#0061FF" />
-                  <View className="bg-primary-100 px-2 py-1 rounded-full">
-                    <Text className="text-xs font-rubik-bold text-primary-300">
-                      Total
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-2xl font-rubik-bold text-black-300">
-                  {overview.totalProperties}
-                </Text>
-                <Text className="text-xs text-gray-600 font-rubik">
-                  Properties
-                </Text>
-              </View>
-
-              <View className="bg-white p-4 rounded-2xl flex-1 min-w-[48%] shadow-sm">
-                <View className="flex-row items-center justify-between mb-2">
-                  <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                  <View className="bg-green-100 px-2 py-1 rounded-full">
-                    <Text className="text-xs font-rubik-bold text-green-600">
-                      Available
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-2xl font-rubik-bold text-black-300">
-                  {overview.availableProperties}
-                </Text>
-                <Text className="text-xs text-gray-600 font-rubik">
-                  For Sale
-                </Text>
-              </View>
-
-              <View className="bg-white p-4 rounded-2xl flex-1 min-w-[48%] shadow-sm">
-                <View className="flex-row items-center justify-between mb-2">
-                  <Ionicons name="cash" size={24} color="#F59E0B" />
-                  <View className="bg-yellow-100 px-2 py-1 rounded-full">
-                    <Text className="text-xs font-rubik-bold text-yellow-600">
-                      Avg
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-xl font-rubik-bold text-black-300">
-                  {formatPrice(overview.averagePrice)}
-                </Text>
-                <Text className="text-xs text-gray-600 font-rubik">
-                  {t("market.avgPrice")}
-                </Text>
-              </View>
-
-              <View className="bg-white p-4 rounded-2xl flex-1 min-w-[48%] shadow-sm">
-                <View className="flex-row items-center justify-between mb-2">
-                  <Ionicons name="trending-up" size={24} color="#8B5CF6" />
-                  <View className="bg-purple-100 px-2 py-1 rounded-full">
-                    <Text className="text-xs font-rubik-bold text-purple-600">
-                      Median
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-xl font-rubik-bold text-black-300">
-                  {formatPrice(overview.medianPrice)}
-                </Text>
-                <Text className="text-xs text-gray-600 font-rubik">
-                  Median Price
-                </Text>
-              </View>
-            </View>
-
-            {/* Price Range */}
-            <View className="bg-white p-5 rounded-2xl shadow-sm mb-6">
-              <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                💰 Price Range
-              </Text>
-              <View className="flex-row justify-between items-center">
-                <View>
-                  <Text className="text-xs text-gray-600 font-rubik mb-1">
-                    Lowest
-                  </Text>
-                  <Text className="text-xl font-rubik-bold text-green-600">
-                    {formatPrice(overview.lowestPrice)}
-                  </Text>
-                </View>
-                <View className="h-16 w-px bg-gray-200" />
-                <View>
-                  <Text className="text-xs text-gray-600 font-rubik mb-1">
-                    Highest
-                  </Text>
-                  <Text className="text-xl font-rubik-bold text-red-600">
-                    {formatPrice(overview.highestPrice)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Property Type Chart */}
-            {pricesByType.length > 0 && (
-              <View className="bg-white p-5 rounded-2xl shadow-sm mb-6">
-                <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                  🏘️ Average Prices by Type
-                </Text>
-                <BarChart
-                  data={{
-                    labels: pricesByType.map((item) =>
-                      item.propertyType.substring(0, 6)
-                    ),
-                    datasets: [
-                      {
-                        data: pricesByType.map((item) => item.averagePrice),
-                      },
-                    ],
-                  }}
-                  width={width - 72}
-                  height={220}
-                  yAxisLabel="$"
-                  yAxisSuffix="k"
-                  chartConfig={{
-                    backgroundColor: "#ffffff",
-                    backgroundGradientFrom: "#ffffff",
-                    backgroundGradientTo: "#ffffff",
-                    decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(0, 97, 255, ${opacity})`,
-                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                    style: { borderRadius: 16 },
-                    propsForLabels: { fontSize: 10 },
-                  }}
-                  style={{ borderRadius: 16 }}
-                  showValuesOnTopOfBars
-                  fromZero
-                />
-              </View>
-            )}
-
-            {/* Property Type List */}
-            {pricesByType.length > 0 && (
-              <View className="bg-white p-5 rounded-2xl shadow-sm">
-                <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                  📊 Detailed Breakdown
-                </Text>
-                {pricesByType.map((item, index) => (
-                  <View
-                    key={index}
-                    className={`py-3 ${index !== pricesByType.length - 1 ? "border-b border-gray-100" : ""}`}
-                  >
-                    <View className="flex-row justify-between items-center mb-1">
-                      <Text className="font-rubik-bold text-black-300">
-                        {item.propertyType}
-                      </Text>
-                      <Text className="font-rubik-bold text-primary-300">
-                        {formatPrice(item.averagePrice)}
-                      </Text>
-                    </View>
-                    <View className="flex-row justify-between items-center">
-                      <Text className="text-xs text-gray-600 font-rubik">
-                        {item.count} properties
-                      </Text>
-                      <Text className="text-xs text-gray-600 font-rubik">
-                        {formatPrice(item.minPrice)} -{" "}
-                        {formatPrice(item.maxPrice)}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {pricesByType.length === 0 && (
-              <View className="bg-white p-5 rounded-2xl shadow-sm">
-                <View className="items-center py-8">
-                  <Ionicons name="home-outline" size={64} color="#D1D5DB" />
-                  <Text className="text-lg font-rubik-bold text-black-300 mt-4 text-center">
-                    No Property Data
-                  </Text>
-                  <Text className="text-sm text-gray-600 font-rubik mt-2 text-center">
-                    Add some properties to see market analysis
-                  </Text>
-                </View>
-              </View>
-            )}
-          </>
-        )}
-
-        {/* Trends Tab */}
-        {selectedTab === "trends" && trends && (
-          <>
-            {trends.trends.length > 0 ? (
-              <>
-                {/* Trend Indicator */}
-                <View className="bg-white p-5 rounded-2xl shadow-sm mb-6">
-                  <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                    📈 Market Trend (Last 6 Months)
-                  </Text>
-                  {trends.trendPercentage !== null && (
-                    <View className="flex-row items-center justify-center mb-4">
-                      <Ionicons
-                        name={
-                          trends.trendDirection === "up"
-                            ? "trending-up"
-                            : trends.trendDirection === "down"
-                              ? "trending-down"
-                              : "remove"
-                        }
-                        size={32}
-                        color={
-                          trends.trendDirection === "up"
-                            ? "#10B981"
-                            : trends.trendDirection === "down"
-                              ? "#EF4444"
-                              : "#F59E0B"
-                        }
-                      />
-                      <Text
-                        className={`text-3xl font-rubik-bold ml-2 ${
-                          trends.trendDirection === "up"
-                            ? "text-green-600"
-                            : trends.trendDirection === "down"
-                              ? "text-red-600"
-                              : "text-yellow-600"
-                        }`}
-                      >
-                        {trends.trendPercentage > 0 ? "+" : ""}
-                        {trends.trendPercentage}%
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Line Chart */}
-                  <LineChart
-                    data={{
-                      labels: trends.trends.map((t) => t.month.substring(5, 7)),
-                      datasets: [
-                        {
-                          data: trends.trends.map((t) => t.averagePrice),
-                        },
-                      ],
-                    }}
-                    width={width - 72}
-                    height={220}
-                    yAxisLabel="$"
-                    yAxisSuffix="k"
-                    chartConfig={{
-                      backgroundColor: "#ffffff",
-                      backgroundGradientFrom: "#ffffff",
-                      backgroundGradientTo: "#ffffff",
-                      decimalPlaces: 0,
-                      color: (opacity = 1) => `rgba(0, 97, 255, ${opacity})`,
-                      labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                      style: { borderRadius: 16 },
-                      propsForDots: {
-                        r: "4",
-                        strokeWidth: "2",
-                        stroke: "#0061FF",
-                      },
-                    }}
-                    bezier
-                    style={{ borderRadius: 16, marginTop: 10 }}
-                  />
-                </View>
-
-                {/* Monthly Breakdown */}
-                <View className="bg-white p-5 rounded-2xl shadow-sm">
-                  <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                    📅 Monthly Breakdown
-                  </Text>
-                  {trends.trends.map((item, index) => (
-                    <View
-                      key={index}
-                      className={`py-3 flex-row justify-between items-center ${index !== trends.trends.length - 1 ? "border-b border-gray-100" : ""}`}
-                    >
-                      <View>
-                        <Text className="font-rubik-bold text-black-300">
-                          {new Date(item.month + "-01").toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "long",
-                              year: "numeric",
-                            }
-                          )}
-                        </Text>
-                        <Text className="text-xs text-gray-600 font-rubik mt-1">
-                          {item.count} listings
-                        </Text>
-                      </View>
-                      <Text className="font-rubik-bold text-primary-300 text-lg">
-                        {formatPrice(item.averagePrice)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </>
-            ) : (
-              <View className="bg-white p-5 rounded-2xl shadow-sm">
-                <View className="items-center py-8">
-                  <Ionicons
-                    name="analytics-outline"
-                    size={64}
-                    color="#D1D5DB"
-                  />
-                  <Text className="text-lg font-rubik-bold text-black-300 mt-4 text-center">
-                    No Trend Data
-                  </Text>
-                  <Text className="text-sm text-gray-600 font-rubik mt-2 text-center">
-                    Not enough recent data to show trends
-                  </Text>
-                </View>
-              </View>
-            )}
-          </>
-        )}
-
-        {/* Forecast Tab */}
-        {selectedTab === "forecast" && forecast && (
-          <>
-            {forecast.forecast === "insufficient_data" ? (
-              <View className="bg-white p-5 rounded-2xl shadow-sm">
-                <View className="items-center py-8">
-                  <Ionicons
-                    name="analytics-outline"
-                    size={64}
-                    color="#D1D5DB"
-                  />
-                  <Text className="text-lg font-rubik-bold text-black-300 mt-4 text-center">
-                    Insufficient Data
-                  </Text>
-                  <Text className="text-sm text-gray-600 font-rubik mt-2 text-center">
-                    {forecast.message || "Not enough data for forecast"}
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <>
-                {/* Current Market Status */}
-                <View className="bg-white p-5 rounded-2xl shadow-sm mb-6">
-                  <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                    🎯 Current Market Status
-                  </Text>
-                  <View className="items-center py-4">
-                    <Text className="text-sm text-gray-600 font-rubik mb-2">
-                      Average Price
-                    </Text>
-                    <Text className="text-3xl font-rubik-bold text-primary-300">
-                      {formatPrice(forecast.currentAveragePrice)}
-                    </Text>
-                    <View className="flex-row items-center mt-3">
-                      <Ionicons
-                        name={
-                          forecast.growthRate >= 0
-                            ? "trending-up"
-                            : "trending-down"
-                        }
-                        size={20}
-                        color={forecast.growthRate >= 0 ? "#10B981" : "#EF4444"}
-                      />
-                      <Text
-                        className={`text-lg font-rubik-bold ml-2 ${
-                          forecast.growthRate >= 0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {forecast.growthRate > 0 ? "+" : ""}
-                        {forecast.growthRate}%
-                      </Text>
-                      <Text className="text-sm text-gray-600 font-rubik ml-2">
-                        growth rate
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Recommendation Card */}
-                <View
-                  className={`p-5 rounded-2xl shadow-sm mb-6 ${
-                    forecast.recommendation === "Strong buyer's market"
-                      ? "bg-green-50 border-2 border-green-200"
-                      : forecast.recommendation === "Good time to buy"
-                        ? "bg-blue-50 border-2 border-blue-200"
-                        : "bg-yellow-50 border-2 border-yellow-200"
-                  }`}
-                >
-                  <View className="flex-row items-center mb-2">
-                    <Ionicons
-                      name={
-                        forecast.recommendation === "Strong buyer's market"
-                          ? "trending-up"
-                          : forecast.recommendation === "Good time to buy"
-                            ? "cart"
-                            : "pause-circle"
-                      }
-                      size={24}
-                      color={
-                        forecast.recommendation === "Strong buyer's market"
-                          ? "#10B981"
-                          : forecast.recommendation === "Good time to buy"
-                            ? "#0061FF"
-                            : "#F59E0B"
-                      }
-                    />
-                    <Text
-                      className={`text-lg font-rubik-bold ml-2 ${
-                        forecast.recommendation === "Strong buyer's market"
-                          ? "text-green-700"
-                          : forecast.recommendation === "Good time to buy"
-                            ? "text-blue-700"
-                            : "text-yellow-700"
-                      }`}
-                    >
-                      {forecast.recommendation}
-                    </Text>
-                  </View>
-                  <Text className="text-sm font-rubik text-gray-700 mt-1">
-                    {forecast.recommendation === "Strong buyer's market"
-                      ? "Market prices are rising. Consider selling your property."
-                      : forecast.recommendation === "Good time to buy"
-                        ? "Market prices are declining. Great opportunity for buyers."
-                        : "Market is stable. Balanced conditions for buyers and sellers."}
-                  </Text>
-                </View>
-
-                {/* Forecast Chart */}
-                {Array.isArray(forecast.forecast) &&
-                  forecast.forecast.length > 0 && (
-                    <>
-                      <View className="bg-white p-5 rounded-2xl shadow-sm mb-6">
-                        <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                          🔮 3-Month Price Projection
-                        </Text>
-                        <BarChart
-                          data={{
-                            labels: forecast.forecast.map((f) =>
-                              new Date(f.month + "-01").toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                }
-                              )
-                            ),
-                            datasets: [
-                              {
-                                data: forecast.forecast.map(
-                                  (f) => f.projectedPrice
-                                ),
-                              },
-                            ],
-                          }}
-                          width={width - 72}
-                          height={220}
-                          yAxisLabel="$"
-                          yAxisSuffix="k"
-                          chartConfig={{
-                            backgroundColor: "#ffffff",
-                            backgroundGradientFrom: "#ffffff",
-                            backgroundGradientTo: "#ffffff",
-                            decimalPlaces: 0,
-                            color: (opacity = 1) =>
-                              `rgba(139, 92, 246, ${opacity})`,
-                            labelColor: (opacity = 1) =>
-                              `rgba(0, 0, 0, ${opacity})`,
-                            style: { borderRadius: 16 },
-                            propsForLabels: { fontSize: 10 },
-                          }}
-                          style={{ borderRadius: 16 }}
-                          showValuesOnTopOfBars
-                          fromZero
-                        />
-                      </View>
-
-                      {/* Projected Prices List */}
-                      <View className="bg-white p-5 rounded-2xl shadow-sm">
-                        <Text className="text-lg font-rubik-bold text-black-300 mb-4">
-                          📊 Projected Prices
-                        </Text>
-                        {Array.isArray(forecast.forecast) &&
-                          forecast.forecast.map((item, index) => (
-                            <View
-                              key={index}
-                              className={`py-3 flex-row justify-between items-center ${
-                                index !== forecast.forecast!.length - 1
-                                  ? "border-b border-gray-100"
-                                  : ""
-                              }`}
-                            >
-                              <Text className="font-rubik-bold text-black-300">
-                                {new Date(
-                                  item.month + "-01"
-                                ).toLocaleDateString("en-US", {
-                                  month: "long",
-                                  year: "numeric",
-                                })}
-                              </Text>
-                              <Text className="font-rubik-bold text-purple-600 text-lg">
-                                {formatPrice(item.projectedPrice)}
-                              </Text>
-                            </View>
-                          ))}
-                      </View>
-                    </>
-                  )}
-
-                {/* Disclaimer */}
-                <View className="bg-yellow-50 p-4 rounded-2xl mt-6 border border-yellow-200">
-                  <View className="flex-row items-start">
-                    <Ionicons
-                      name="information-circle"
-                      size={20}
-                      color="#F59E0B"
-                    />
-                    <Text className="text-xs text-gray-700 font-rubik ml-2 flex-1">
-                      These projections are based on historical data and current
-                      trends. Actual market conditions may vary. Always consult
-                      with a real estate professional before making investment
-                      decisions.
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </>
-        )}
-      </ScrollView>
+        {selectedTab === "overview" && OverviewSection}
+        {selectedTab === "trends" && TrendsSection}
+        {selectedTab === "forecast" && ForecastSection}
+      </Animated.ScrollView>
     </SafeAreaView>
   );
-};
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: spacing.base,
+    fontFamily: "Rubik-Regular",
+    fontSize: 14,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontFamily: "Rubik-Bold",
+    marginTop: spacing.base,
+    textAlign: "center",
+  },
+  errorMessage: {
+    fontSize: 14,
+    fontFamily: "Rubik-Regular",
+    marginTop: spacing.sm,
+    textAlign: "center",
+  },
+  retryButton: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    marginTop: spacing.xl,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontFamily: "Rubik-Bold",
+    fontSize: 14,
+  },
+  header: {
+    paddingHorizontal: layout.screenPaddingX,
+    paddingVertical: spacing.base,
+    borderBottomWidth: 1,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  accentLine: {
+    width: 4,
+    height: 40,
+    borderRadius: 2,
+    marginRight: spacing.md,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontFamily: "Rubik-Bold",
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    fontFamily: "Rubik-Regular",
+    marginTop: 2,
+  },
+  tabContainer: {
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  tabScrollContent: {
+    gap: spacing.sm,
+  },
+  tabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.full,
+  },
+  tabButtonPressed: {
+    opacity: 0.8,
+  },
+  tabButtonText: {
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    fontFamily: "Rubik-Medium",
+  },
+  scrollContent: {
+    padding: spacing.base,
+    paddingBottom: 100,
+  },
+  overviewContainer: {
+    padding: spacing.xl,
+    borderRadius: radius["2xl"],
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: "Rubik-Bold",
+    marginBottom: spacing.md,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: "46%",
+    padding: spacing.base,
+    borderRadius: radius.card,
+  },
+  statCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  statIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+  },
+  statBadgeText: {
+    fontSize: 11,
+    fontFamily: "Rubik-Bold",
+  },
+  statValue: {
+    fontSize: 24,
+    fontFamily: "Rubik-Bold",
+  },
+  statValueSmall: {
+    fontSize: 18,
+    fontFamily: "Rubik-Bold",
+  },
+  statLabel: {
+    fontSize: 12,
+    fontFamily: "Rubik-Regular",
+    marginTop: 2,
+  },
+});
 
 export default MarketScreen;

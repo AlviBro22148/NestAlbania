@@ -1,37 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { router } from 'expo-router';
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { router } from "expo-router";
+import { authStorage } from "./storage";
 
-const API_URL = "http://192.168.1.5:5175";
-
-// In-memory token cache to avoid AsyncStorage reads on every request
-let cachedAccessToken: string | null = null;
-let cachedRefreshToken: string | null = null;
-let cachedUserId: string | null = null;
-
-// Initialize token cache from AsyncStorage
-const initTokenCache = async () => {
-  cachedAccessToken = await AsyncStorage.getItem('accessToken');
-  cachedRefreshToken = await AsyncStorage.getItem('refreshToken');
-  cachedUserId = await AsyncStorage.getItem('userId');
-};
-
-// Call on app start
-initTokenCache();
-
-// Request deduplication - prevent duplicate in-flight requests
-const pendingRequests = new Map<string, Promise<any>>();
-
-const getRequestKey = (config: InternalAxiosRequestConfig): string => {
-  return `${config.method}-${config.url}-${JSON.stringify(config.params || {})}`;
-};
+const API_URL = "http://192.168.1.4:5175";
 
 // Create axios instance with optimized settings
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 15000, // Slightly longer timeout for slow networks
+  timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -53,27 +31,19 @@ const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor - Add token using cached value (faster than AsyncStorage)
+// Request interceptor - Add token (MMKV is synchronous, no async needed!)
 api.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => {
-    // Use cached token for faster access
-    if (cachedAccessToken && config.headers) {
-      config.headers.Authorization = `Bearer ${cachedAccessToken}`;
-    } else {
-      // Fallback to AsyncStorage if cache is empty
-      const token = await AsyncStorage.getItem('accessToken');
-      if (token) {
-        cachedAccessToken = token;
-        if (config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      }
+  (config: InternalAxiosRequestConfig) => {
+    // MMKV is synchronous - much faster than AsyncStorage
+    const token = authStorage.getAccessToken();
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor - Handle token expiration and auto-refresh
@@ -113,19 +83,18 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // Use cached values first, fallback to AsyncStorage
-      const refreshToken = cachedRefreshToken || await AsyncStorage.getItem('refreshToken');
-      const userId = cachedUserId || await AsyncStorage.getItem('userId');
+      // MMKV is synchronous - no await needed
+      const refreshToken = authStorage.getRefreshToken();
+      const userId = authStorage.getUserId();
 
       if (!refreshToken || !userId) {
-        // No tokens available - handle session expiration and redirect
         processQueue(null, null);
         isRefreshing = false;
         await handleSessionExpired();
         return Promise.resolve({ data: null });
       }
 
-      // Call refresh endpoint with correct DTO structure
+      // Call refresh endpoint
       const response = await axios.post(`${API_URL}/api/auth/refresh-tokens`, {
         userId: userId,
         refreshToken: refreshToken,
@@ -133,12 +102,10 @@ api.interceptors.response.use(
 
       const { accessToken, refreshToken: newRefreshToken } = response.data;
 
-      // Store new tokens and update cache
-      await AsyncStorage.setItem('accessToken', accessToken);
-      cachedAccessToken = accessToken;
+      // Store new tokens (MMKV - synchronous)
+      authStorage.setAccessToken(accessToken);
       if (newRefreshToken) {
-        await AsyncStorage.setItem('refreshToken', newRefreshToken);
-        cachedRefreshToken = newRefreshToken;
+        authStorage.setRefreshToken(newRefreshToken);
       }
 
       // Update the original request with new token
@@ -158,21 +125,17 @@ api.interceptors.response.use(
       await handleSessionExpired();
       return Promise.resolve({ data: null });
     }
-  }
+  },
 );
 
 // Handle session expiration - clear tokens and redirect to sign-in
 const handleSessionExpired = async () => {
   try {
-    // Clear both cache and AsyncStorage
-    cachedAccessToken = null;
-    cachedRefreshToken = null;
-    cachedUserId = null;
-    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userId']);
+    // Clear MMKV storage (synchronous)
+    authStorage.clearAll();
 
     // Redirect to sign-in page
-    // Use replace to prevent going back to authenticated pages
-    router.replace('/auth/sign-in');
+    router.replace("/auth/sign-in");
   } catch (error) {
     // Silent fail in production
   }
@@ -184,32 +147,30 @@ export const logout = async () => {
   return true;
 };
 
-export const isAuthenticated = async (): Promise<boolean> => {
-  // Use cached value first for faster check
-  if (cachedAccessToken) return true;
-  const token = await AsyncStorage.getItem('accessToken');
-  if (token) cachedAccessToken = token;
-  return !!token;
+export const isAuthenticated = (): boolean => {
+  // MMKV is synchronous - instant check
+  return authStorage.hasTokens();
 };
 
-export const getToken = async (): Promise<string | null> => {
-  // Use cached value first
-  if (cachedAccessToken) return cachedAccessToken;
-  const token = await AsyncStorage.getItem('accessToken');
-  if (token) cachedAccessToken = token;
-  return token;
+export const getToken = (): string | undefined => {
+  return authStorage.getAccessToken();
 };
 
-// Update cache when tokens are set externally (e.g., after login)
-export const updateTokenCache = (accessToken: string, refreshToken: string, userId: string) => {
-  cachedAccessToken = accessToken;
-  cachedRefreshToken = refreshToken;
-  cachedUserId = userId;
+// Legacy function for compatibility (no longer needed with MMKV but kept for API compatibility)
+export const updateTokenCache = (
+  accessToken: string,
+  refreshToken: string,
+  userId: string,
+) => {
+  authStorage.setTokens(accessToken, refreshToken, userId);
 };
 
-// Refresh the token cache from AsyncStorage
-export const refreshTokenCache = async () => {
-  await initTokenCache();
+export const clearTokenCache = () => {
+  authStorage.clearAll();
+};
+
+export const refreshTokenCache = () => {
+  // No-op with MMKV since it's synchronous and always reads from storage
 };
 
 export default api;

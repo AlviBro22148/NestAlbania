@@ -4,12 +4,14 @@ import ComparisonFloatingButton from "@/components/ComparisonFloatingButton";
 import ChatFloatingButton from "@/components/ChatFloatingButton";
 import icons from "@/constants/icons";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import api from "@/lib/axios-config";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Image as ExpoImage } from "expo-image";
 
 import {
   ActivityIndicator,
@@ -20,8 +22,17 @@ import {
   Text,
   TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+// Time-based greeting
+const getGreetingKey = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "home.goodMorning";
+  if (hour < 18) return "home.goodAfternoon";
+  return "home.goodEvening";
+};
 
 interface Property {
   id: number;
@@ -43,8 +54,10 @@ interface Property {
 export default function Index() {
   const { user, isAuthenticated } = useAuth();
   const { t } = useTranslation();
+  const { colors, isDark } = useTheme();
   const { unreadCount, refreshCount } = useNotificationCount();
   const { hasPreferences, fetchPreferences } = useUserPreferences();
+  const greetingKey = useMemo(() => getGreetingKey(), []);
 
   // State for property sections
   const [todaysChoice, setTodaysChoice] = useState<Property[]>([]);
@@ -86,7 +99,7 @@ export default function Index() {
       if (isAuthenticated) {
         fetchYourChoice(1, true);
       }
-    }, [isAuthenticated])
+    }, [isAuthenticated]),
   );
 
   // Fetch Today's Choice properties
@@ -198,68 +211,95 @@ export default function Index() {
   }, []);
 
   // Memoized render functions for FlatLists
-  const renderTodaysChoice = useCallback(({ item }: { item: Property }) => (
-    <TodaysChoiceCard
-      property={item}
-      onPress={() => handlePropertyPress(item.id)}
-    />
-  ), [handlePropertyPress]);
+  const renderTodaysChoice = useCallback(
+    ({ item }: { item: Property }) => (
+      <TodaysChoiceCard
+        property={item}
+        onPress={() => handlePropertyPress(item.id)}
+      />
+    ),
+    [handlePropertyPress],
+  );
 
-  const renderFeatured = useCallback(({ item }: { item: Property }) => (
-    <FeaturedCard
-      property={item}
-      onPress={() => handlePropertyPress(item.id)}
-    />
-  ), [handlePropertyPress]);
+  const renderFeatured = useCallback(
+    ({ item }: { item: Property }) => (
+      <FeaturedCard
+        property={item}
+        onPress={() => handlePropertyPress(item.id)}
+      />
+    ),
+    [handlePropertyPress],
+  );
 
-  const renderGreenHome = useCallback(({ item }: { item: any }) => (
-    <GreenHomeCard
-      property={item}
-      onPress={() => handlePropertyPress(item.id)}
-    />
-  ), [handlePropertyPress]);
+  const renderGreenHome = useCallback(
+    ({ item }: { item: any }) => (
+      <GreenHomeCard
+        property={item}
+        onPress={() => handlePropertyPress(item.id)}
+      />
+    ),
+    [handlePropertyPress],
+  );
 
   const keyExtractor = useCallback((item: Property) => item.id.toString(), []);
 
   return (
-    <SafeAreaView className="bg-white h-full">
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#0061FF"
-            colors={["#0061FF"]}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
-        <View className="px-4 pb-32">
+        <View style={styles.content}>
           {/* User Greeting + Notifications */}
-          <View className="flex flex-row items-center justify-between mt-5 mb-2">
-            <View className="flex flex-row items-center">
-              <Image
-                source={{
-                  uri: user?.profilePictureUrl,
-                }}
-                className="size-12 rounded-full"
-              />
-              <View className="flex flex-col items-start ml-2 justify-center">
-                <Text className="text-xs font-rubik text-black-100">
-                  {t("common.goodMorning")}
+          <View style={styles.header}>
+            <View style={styles.userInfo}>
+              <View
+                style={[styles.avatarContainer, { borderColor: colors.accent }]}
+              >
+                <ExpoImage
+                  source={{ uri: user?.profilePictureUrl }}
+                  style={styles.avatar}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                />
+              </View>
+              <View style={styles.greetingContainer}>
+                <Text
+                  style={[styles.greetingText, { color: colors.textMuted }]}
+                >
+                  {t(greetingKey)},
                 </Text>
-                <Text className="text-base font-rubik-medium text-black-300">
+                <Text style={[styles.userName, { color: colors.text }]}>
                   {user?.username}
                 </Text>
               </View>
             </View>
 
-            <TouchableOpacity onPress={notifications} className="relative">
-              <Image source={icons.bell} className="size-6" />
+            <TouchableOpacity
+              onPress={notifications}
+              style={[
+                styles.notificationBtn,
+                { backgroundColor: colors.surfaceElevated },
+              ]}
+            >
+              <ExpoImage
+                source={icons.bell}
+                style={[styles.bellIcon, { tintColor: colors.text }]}
+                contentFit="contain"
+              />
               {unreadCount > 0 && (
-                <View className="absolute -top-1 -right-1 bg-[#EF4444] rounded-full flex items-center justify-center min-w-[16px] h-4 px-1">
-                  <Text className="text-white text-[10px] font-bold">
-                    {unreadCount}
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </Text>
                 </View>
               )}
@@ -267,14 +307,25 @@ export default function Index() {
           </View>
 
           {/* TODAY'S CHOICE SECTION */}
-          <View className="my-5 mt-8">
-            <View className="flex flex-row items-center justify-between mb-3">
-              <View className="flex flex-row items-center">
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <View
+                  style={[
+                    styles.sectionAccent,
+                    { backgroundColor: colors.accent },
+                  ]}
+                />
                 <View>
-                  <Text className="text-2xl font-rubik-extrabold text-black-300">
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
                     {t("properties.todaysChoice")}
                   </Text>
-                  <Text className="text-xs font-rubik text-gray-500 mt-0.5">
+                  <Text
+                    style={[
+                      styles.sectionSubtitle,
+                      { color: colors.textMuted },
+                    ]}
+                  >
                     {t("properties.todaysChoiceDescription")}
                   </Text>
                 </View>
@@ -282,8 +333,8 @@ export default function Index() {
             </View>
 
             {loadingTodaysChoice ? (
-              <View className="py-8 items-center">
-                <ActivityIndicator size="large" color="#F59E0B" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.badgeGold} />
               </View>
             ) : todaysChoice.length > 0 ? (
               <FlatList
@@ -293,15 +344,20 @@ export default function Index() {
                 horizontal
                 bounces={false}
                 showsHorizontalScrollIndicator={false}
-                contentContainerClassName="py-2"
+                contentContainerStyle={styles.horizontalList}
                 initialNumToRender={3}
                 maxToRenderPerBatch={3}
                 windowSize={5}
                 removeClippedSubviews={true}
               />
             ) : (
-              <View className="py-8 items-center">
-                <Text className="text-gray-500 font-rubik">
+              <View
+                style={[
+                  styles.emptyState,
+                  { backgroundColor: colors.surfaceElevated },
+                ]}
+              >
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                   {t("properties.noPropertiesFound")}
                 </Text>
               </View>
@@ -310,35 +366,59 @@ export default function Index() {
 
           {/* YOUR CHOICE SECTION - Personalized based on preferences */}
           {isAuthenticated && (
-            <View className="mt-8 mb-5">
-              <View className="flex-row items-start justify-between mb-4">
-                <View className="flex-1 mr-3">
-                  <View className="flex-row items-center mb-1">
-                    <Text className="text-2xl mr-2">✨</Text>
-                    <Text className="text-xl font-rubik-bold text-black-300">
+            <View style={styles.section}>
+              <View style={styles.yourChoiceHeader}>
+                <View style={styles.yourChoiceTitleRow}>
+                  <View
+                    style={[
+                      styles.sectionAccent,
+                      { backgroundColor: "#8B5CF6" },
+                    ]}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
                       {t("preferences.yourChoice")}
                     </Text>
+                    <Text
+                      style={[
+                        styles.sectionSubtitle,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      {hasPreferences
+                        ? t("preferences.personalizedForYou")
+                        : t("preferences.setPreferencesToPersonalize")}
+                    </Text>
                   </View>
-                  <Text className="text-xs font-rubik text-gray-500">
-                    {hasPreferences
-                      ? t("preferences.personalizedForYou")
-                      : t("preferences.setPreferencesToPersonalize")}
-                  </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => router.push("/(root)/(tabs)/edit-preferences")}
-                  className="bg-primary-100 px-3 py-1.5 rounded-full"
+                  onPress={() =>
+                    router.push("/(root)/(screens)/edit-preferences")
+                  }
+                  style={[
+                    styles.editButton,
+                    { backgroundColor: colors.primaryLight },
+                  ]}
                 >
-                  <Text className="text-sm font-rubik-medium text-primary-300">
+                  <Text
+                    style={[styles.editButtonText, { color: colors.primary }]}
+                  >
                     {hasPreferences ? "Edit" : "Set Up"}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {loadingYourChoice ? (
-                <View className="py-10 items-center bg-gray-50 rounded-2xl">
-                  <ActivityIndicator size="large" color="#8B5CF6" />
-                  <Text className="text-gray-400 font-rubik text-sm mt-3">
+                <View
+                  style={[
+                    styles.yourChoiceLoading,
+                    { backgroundColor: colors.surfaceElevated },
+                  ]}
+                >
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text
+                    style={[styles.loadingText, { color: colors.textMuted }]}
+                  >
                     Loading your recommendations...
                   </Text>
                 </View>
@@ -351,7 +431,7 @@ export default function Index() {
                     horizontal
                     bounces={false}
                     showsHorizontalScrollIndicator={false}
-                    contentContainerClassName="flex gap-4 py-1"
+                    contentContainerStyle={styles.horizontalListGap}
                     onEndReached={loadMoreYourChoice}
                     onEndReachedThreshold={0.5}
                     initialNumToRender={4}
@@ -360,39 +440,66 @@ export default function Index() {
                     removeClippedSubviews={true}
                     ListFooterComponent={
                       loadingMoreYourChoice ? (
-                        <View className="justify-center items-center px-4 w-16">
-                          <ActivityIndicator size="small" color="#8B5CF6" />
+                        <View style={styles.footerLoader}>
+                          <ActivityIndicator
+                            size="small"
+                            color={colors.primary}
+                          />
                         </View>
                       ) : null
                     }
                   />
                   {yourChoiceTotalCount > 10 && (
-                    <View className="flex-row justify-center items-center mt-4 bg-gray-50 py-2 rounded-full mx-10">
-                      <Text className="text-xs font-rubik-medium text-gray-500">
+                    <View
+                      style={[
+                        styles.countBadge,
+                        { backgroundColor: colors.surfaceElevated },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.countText, { color: colors.textMuted }]}
+                      >
                         {yourChoice.length} of {yourChoiceTotalCount} properties
                       </Text>
                     </View>
                   )}
                 </View>
               ) : (
-                <View className="py-10 items-center bg-gray-50 rounded-2xl border border-gray-100">
-                  <Text className="text-4xl mb-3">🏠</Text>
-                  <Text className="text-gray-600 font-rubik-medium text-center px-6 mb-1">
+                <View
+                  style={[
+                    styles.yourChoiceEmpty,
+                    {
+                      backgroundColor: colors.surfaceElevated,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={styles.emptyIcon}>🏠</Text>
+                  <Text
+                    style={[styles.emptyTitle, { color: colors.textSecondary }]}
+                  >
                     {hasPreferences
                       ? t("preferences.noMatchingProperties")
                       : "Personalize your experience"}
                   </Text>
-                  <Text className="text-gray-400 font-rubik text-sm text-center px-8 mb-4">
+                  <Text
+                    style={[styles.emptySubtitle, { color: colors.textMuted }]}
+                  >
                     {hasPreferences
                       ? "Try adjusting your preferences"
                       : "Set your preferences to see properties tailored just for you"}
                   </Text>
                   {!hasPreferences && (
                     <TouchableOpacity
-                      onPress={() => router.push("/(root)/(tabs)/edit-preferences")}
-                      className="bg-primary-300 px-6 py-3 rounded-full shadow-sm"
+                      onPress={() =>
+                        router.push("/(root)/(screens)/edit-preferences")
+                      }
+                      style={[
+                        styles.setupButton,
+                        { backgroundColor: colors.primary },
+                      ]}
                     >
-                      <Text className="text-white font-rubik-bold">
+                      <Text style={styles.setupButtonText}>
                         {t("preferences.setNow")}
                       </Text>
                     </TouchableOpacity>
@@ -403,21 +510,34 @@ export default function Index() {
           )}
 
           {/* GREEN HOMES SECTION */}
-          <View className="my-5 mt-8">
-            <View className="flex flex-row items-center justify-between mb-3">
-              <View>
-                <Text className="text-2xl font-rubik-extrabold text-black-300">
-                  {t("greenHomes.title")}
-                </Text>
-                <Text className="text-xs font-rubik text-gray-500 mt-0.5">
-                  {t("greenHomes.description")}
-                </Text>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <View
+                  style={[
+                    styles.sectionAccent,
+                    { backgroundColor: colors.success },
+                  ]}
+                />
+                <View>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    {t("greenHomes.title")}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sectionSubtitle,
+                      { color: colors.textMuted },
+                    ]}
+                  >
+                    {t("greenHomes.description")}
+                  </Text>
+                </View>
               </View>
             </View>
 
             {loadingGreenHomes ? (
-              <View className="py-8 items-center">
-                <ActivityIndicator size="large" color="#10B981" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.success} />
               </View>
             ) : greenHomes.length > 0 ? (
               <FlatList
@@ -427,15 +547,20 @@ export default function Index() {
                 horizontal
                 bounces={false}
                 showsHorizontalScrollIndicator={false}
-                contentContainerClassName="py-2"
+                contentContainerStyle={styles.horizontalList}
                 initialNumToRender={3}
                 maxToRenderPerBatch={3}
                 windowSize={5}
                 removeClippedSubviews={true}
               />
             ) : (
-              <View className="py-8 items-center">
-                <Text className="text-gray-500 font-rubik">
+              <View
+                style={[
+                  styles.emptyState,
+                  { backgroundColor: colors.surfaceElevated },
+                ]}
+              >
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                   {t("greenHomes.noGreenHomes")}
                 </Text>
               </View>
@@ -443,23 +568,32 @@ export default function Index() {
           </View>
 
           {/* FEATURED PROPERTIES SECTION */}
-          <View className="my-5 mt-8">
-            <View className="flex flex-row items-center justify-between mb-4">
-              <Text className="text-2xl font-rubik-extrabold text-black-300">
-                {t("properties.featured")}
-              </Text>
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderWithAction}>
+              <View style={styles.sectionTitleContainer}>
+                <View
+                  style={[
+                    styles.sectionAccent,
+                    { backgroundColor: colors.primary },
+                  ]}
+                />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {t("properties.featured")}
+                </Text>
+              </View>
               <TouchableOpacity
                 onPress={() => router.push("/(root)/(tabs)/explore")}
+                style={styles.seeAllButton}
               >
-                <Text className="text-base font-rubik-bold text-primary-300 px-1">
+                <Text style={[styles.seeAllText, { color: colors.primary }]}>
                   {t("properties.seeAll")}
                 </Text>
               </TouchableOpacity>
             </View>
 
             {loadingFeatured ? (
-              <View className="py-8 items-center">
-                <ActivityIndicator size="large" color="#0061FF" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
               </View>
             ) : featuredProperties.length > 0 ? (
               <FlatList
@@ -469,15 +603,20 @@ export default function Index() {
                 horizontal
                 bounces={false}
                 showsHorizontalScrollIndicator={false}
-                contentContainerClassName="flex gap-5"
+                contentContainerStyle={styles.horizontalListGap}
                 initialNumToRender={3}
                 maxToRenderPerBatch={3}
                 windowSize={5}
                 removeClippedSubviews={true}
               />
             ) : (
-              <View className="py-8 items-center">
-                <Text className="text-gray-500 font-rubik">
+              <View
+                style={[
+                  styles.emptyState,
+                  { backgroundColor: colors.surfaceElevated },
+                ]}
+              >
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                   {t("properties.noPropertiesFound")}
                 </Text>
               </View>
@@ -494,3 +633,235 @@ export default function Index() {
     </SafeAreaView>
   );
 }
+
+// Styles
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingBottom: 120,
+  },
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarContainer: {
+    borderRadius: 28,
+    borderWidth: 2,
+    padding: 2,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  greetingContainer: {
+    marginLeft: 12,
+  },
+  greetingText: {
+    fontSize: 13,
+    fontFamily: "Rubik-Regular",
+  },
+  userName: {
+    fontSize: 18,
+    fontFamily: "Rubik-SemiBold",
+    marginTop: 2,
+  },
+  notificationBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bellIcon: {
+    width: 22,
+    height: 22,
+  },
+  badge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontFamily: "Rubik-Bold",
+  },
+
+  // Section
+  section: {
+    marginTop: 28,
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionHeaderWithAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  sectionTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sectionAccent: {
+    width: 4,
+    height: 28,
+    borderRadius: 2,
+    marginRight: 12,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontFamily: "Rubik-Bold",
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    fontFamily: "Rubik-Regular",
+    marginTop: 2,
+  },
+  seeAllButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  seeAllText: {
+    fontSize: 15,
+    fontFamily: "Rubik-SemiBold",
+  },
+
+  // Loading
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: "center",
+  },
+
+  // Empty state
+  emptyState: {
+    paddingVertical: 32,
+    alignItems: "center",
+    borderRadius: 16,
+  },
+  emptyText: {
+    fontFamily: "Rubik-Regular",
+    fontSize: 14,
+  },
+
+  // Horizontal lists
+  horizontalList: {
+    paddingVertical: 8,
+  },
+  horizontalListGap: {
+    paddingVertical: 4,
+    gap: 16,
+  },
+
+  // Your Choice specific
+  yourChoiceHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  yourChoiceTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+  sparkleIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  editButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  editButtonText: {
+    fontSize: 13,
+    fontFamily: "Rubik-SemiBold",
+  },
+  yourChoiceLoading: {
+    paddingVertical: 40,
+    alignItems: "center",
+    borderRadius: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: "Rubik-Regular",
+    marginTop: 12,
+  },
+  footerLoader: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    width: 64,
+  },
+  countBadge: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginHorizontal: 40,
+  },
+  countText: {
+    fontSize: 12,
+    fontFamily: "Rubik-Medium",
+  },
+  yourChoiceEmpty: {
+    paddingVertical: 40,
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontFamily: "Rubik-Medium",
+    fontSize: 16,
+    textAlign: "center",
+    paddingHorizontal: 24,
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontFamily: "Rubik-Regular",
+    fontSize: 14,
+    textAlign: "center",
+    paddingHorizontal: 32,
+    marginBottom: 16,
+  },
+  setupButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
+  },
+  setupButtonText: {
+    color: "#FFF",
+    fontFamily: "Rubik-Bold",
+    fontSize: 15,
+  },
+});

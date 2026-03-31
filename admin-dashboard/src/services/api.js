@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://192.168.1.5:5175';
+const API_BASE_URL = 'http://192.168.100.94:5175';
 
 // Helper function to handle API responses and check for auth errors
 const handleResponse = async (response) => {

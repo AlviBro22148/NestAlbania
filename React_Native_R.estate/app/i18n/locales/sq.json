@@ -1,6 +1,7 @@
 {
   "common": {
     "save": "Ruaj",
+    "saving": "Duke ruajtur...",
     "cancel": "Anulo",
     "delete": "Fshi",
     "edit": "Modifiko",
@@ -28,7 +29,10 @@
     "all": "Të gjitha",
     "ChooseLanguage": "Zgjidh Gjuhën",
     "likedProperty" : "Pronë",
-    "send": "Dërgo"
+    "send": "Dërgo",
+    "enable": "Aktivizo",
+    "enabled": "Aktivizuar",
+    "disabled": "Çaktivizuar"
   },
 
   "tabs": {
@@ -37,11 +41,19 @@
     "market": "Tregu",
     "services": "Shërbime",
     "profile": "Profili"
+    
   },
 
   "languages": {
     "english": "Anglisht",
     "albanian": "Shqip"
+  },
+
+  "theme": {
+    "selectTheme": "Zgjidh Temën",
+    "light": "E Ndritshme",
+    "dark": "E Errët",
+    "system": "Sistemi"
   },
 
   "cities": {
@@ -218,7 +230,14 @@
       "title": "Cilësimet e Njoftimeve",
       "infoTitle": "Qëndroni të Përditësuar",
       "infoDesc": "Merrni njoftime për uljen e çmimeve, ndryshimet e statusit dhe pronat e reja që përputhen me preferencat tuaja",
-      "alertTypes": "Llojet e Alarm", 
+      "pushNotifications": "Njoftimet Push",
+      "enablePush": "Aktivizo Njoftimet Push",
+      "enablePushDesc": "Merrni njoftime të menjëhershme në pajisjen tuaj",
+      "deviceRegistered": "Pajisja u regjistrua për njoftime",
+      "pushEnabled": "Njoftimet push u aktivizuan me sukses",
+      "pushPermissionDenied": "Leja për njoftime u refuzua. Ju lutemi aktivizoni në cilësimet.",
+      "pushError": "Dështoi aktivizimi i njoftimeve push",
+      "alertTypes": "Llojet e Alarm",
       "priceChanges": "Ndryshimet e Çmimit",
       "priceChangesDesc": "Merrni njoftime kur pronat e pëlqyera ndryshojnë çmimin",
       "statusChanges": "Ndryshimet e Statusit",
@@ -244,6 +263,7 @@
     "myReports": "Raportet e Mia",
     "myChats": "Bisedat e Mia",
     "testimonials": "Dëshmitë",
+    "appearance": "Pamja",
     "becomeAgent": "Bëhu një Agjent",
     "becomeAgentDesc": "Listo dhe menaxho pronat",
     "becomeAgentConfirm": "Do të paraqisni një kërkesë për t'u bërë agjent i pasurive të paluajtshme? Një administrator do ta shqyrtojë aplikimin tuaj.",
@@ -283,8 +303,14 @@
     "passwordChanged": "Fjalëkalimi u ndryshua me sukses!",
     "accountDeleted": "Llogaria juaj u fshi me sukses",
     "property": "Prona",
-    "Community": "Community"
+    "Community": "Community",
+    "settings" : "Settings"
   },
+   "home":{
+      "goodAfternoon": "Mirëdita",
+      "goodEvening": "Mirëmbrëma",
+      "goodMorning": "Mirëmëngjes"
+    },
   
   "properties": {
     "month": "muaj",
@@ -958,6 +984,47 @@
       "resolvedMessage": "Faleminderit! Feedback-u juaj është shqyrtuar dhe zgjidhur. Ne vlerësojmë shumë kohën që morët për të na ndihmuar të përmirësojmë NestAlbania!"
     },
 
+    "services": {
+      "title": "Shërbimet Afër",
+      "subtitle": "Zbulo shërbimet pranë teje",
+      "yourLocation": "Vendndodhja juaj aktuale",
+      "gettingLocation": "Duke marrë vendndodhjen...",
+      "findingPlaces": "Duke gjetur vendet afër...",
+      "searchPlaceholder": "Kërko shërbime, vendndodhje...",
+      "searchRadius": "Rrezja e Kërkimit",
+      "foundPlaces": "U gjetën {{count}} vende afër",
+      "noServices": "Nuk u Gjetën Shërbime",
+      "noServicesMessage": "Provo të rritësh rrezën e kërkimit ose ndrysho filtrat",
+      "tryAgain": "Provo Përsëri",
+      "addressNotAvailable": "Adresa nuk disponohet",
+      "hours": "Orari",
+      "call": "Telefono",
+      "directions": "Drejtime",
+      "website": "Website",
+      "noPhone": "Asnjë Numër Telefoni",
+      "noPhoneMessage": "Numri i telefonit nuk është i disponueshëm për këtë vend",
+      "noWebsite": "Asnjë Website",
+      "noWebsiteMessage": "Website nuk është i disponueshëm për këtë vend",
+      "locationRequired": "Kërkohet Aksesi i Vendndodhjes",
+      "locationRequiredMessage": "Na duhet aksesi në vendndodhjen tuaj për të gjetur shërbimet afër. Ju lutemi aktivizoni lejet e vendndodhjes.",
+      "enableLocation": "Aktivizo Vendndodhjen",
+      "openSettings": "Hap Cilësimet",
+      "locationDenied": "Vendndodhja u Refuzua",
+      "locationDeniedMessage": "Aksesi i vendndodhjes u refuzua. Aktivizojeni në cilësime për të përdorur këtë veçori.",
+      "locationError": "Gabim Vendndodhjeje",
+      "locationErrorMessage": "Dështoi marrja e vendndodhjes suaj. Ju lutemi provoni përsëri.",
+      "fetchError": "Gabim Ngarkimi",
+      "fetchErrorMessage": "Dështoi ngarkimi i shërbimeve afër. Ju lutemi provoni përsëri.",
+      "categories": {
+        "all": "Të Gjitha",
+        "schools": "Shkollat",
+        "hospitals": "Spitalet",
+        "transit": "Transporti",
+        "shopping": "Dyqanet",
+        "food": "Ushqimi"
+      }
+    },
+
     "preferences": {
       "yourChoice": "Zgjedhja Jote",
       "yourPreferences": "Preferencat e Tua",
@@ -1026,6 +1093,36 @@
       "clearPreferences": "Pastro Preferencat",
       "noPreferencesTitle": "Asnjë Preferencë e Vendosur",
       "noPreferencesMessage": "Vendos preferencat e pronave për të marrë rekomandimet e personalizuara dhe për të parë pronat që përputhen me kriteret e tua."
+    },
+
+    "onboarding": {
+      "welcome": {
+        "title": "Mirë se vini në NestAlbania",
+        "description": "Partneri juaj i besuar për të gjetur pronën e përsosur në Shqipëri. Zbuloni apartamente, shtëpi, vila dhe më shumë.",
+        "tip": "Vendosni preferencat tuaja për rekomandime të personalizuara pronash"
+      },
+      "search": {
+        "title": "Shfleto & Kërko",
+        "description": "Eksploroni mijëra prona me filtra të fuqishëm. Kërkoni sipas vendndodhjes, çmimit, llojit të pronës dhe komoditeteve.",
+        "tip": "Përdorni filtrat për të ngushtuar pronat që përputhen me nevojat tuaja"
+      },
+      "save": {
+        "title": "Ruaj & Krahaso",
+        "description": "Pëlqeni pronat për t'i ruajtur për më vonë. Krahasoni prona të shumta për të marrë vendimin më të mirë.",
+        "tip": "Shtypni ikonën e zemrës në çdo pronë për ta shtuar te të preferuarat"
+      },
+      "connect": {
+        "title": "Lidhu me Pronarët",
+        "description": "Bisedoni drejtpërdrejt me pronarët dhe agjentët e pronave. Merrni përgjigje për pyetjet tuaja dhe planifikoni vizita.",
+        "tip": "Filloni një bisedë për të mësuar më shumë rreth pronave që ju interesojnë"
+      },
+      "getStarted": {
+        "title": "Fillo Tani",
+        "description": "Krijoni një llogari për të zhbllokuar të gjitha veçoritë. Ruani të preferuarat, bisedoni me pronarët dhe gjeni shtëpinë e ëndrrave."
+      },
+      "skip": "Kapërce",
+      "next": "Vazhdo",
+      "getStartedButton": "Fillo Tani"
     }
   }
 

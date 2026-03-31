@@ -135,9 +135,11 @@ export const TodaysChoiceCard = memo(function TodaysChoiceCard({
         source={{ uri: property.images[0] }}
         style={{ width: "100%", height: "100%", borderRadius: 24 }}
         contentFit="cover"
-        placeholder={BLURHASH}
-        transition={200}
+        placeholder={{ blurhash: BLURHASH }}
+        placeholderContentFit="cover"
+        transition={0}
         cachePolicy="memory-disk"
+        recyclingKey={property.images[0]}
       />
 
       {/* Gradient Overlay */}
@@ -345,9 +347,11 @@ export const FeaturedCard = memo(function FeaturedCard({ property, onPress }: Fe
         source={{ uri: property.images[0] }}
         style={{ width: "100%", height: "100%", borderRadius: 16 }}
         contentFit="cover"
-        placeholder={BLURHASH}
-        transition={200}
+        placeholder={{ blurhash: BLURHASH }}
+        placeholderContentFit="cover"
+        transition={0}
         cachePolicy="memory-disk"
+        recyclingKey={property.images[0]}
       />
       <Image
         source={images.cardGradient}
@@ -550,9 +554,11 @@ export const Cards = memo(function Cards({ property, onPress }: CardProps) {
           source={{ uri: property.images[0] }}
           style={{ width: "100%", height: 160, borderRadius: 8 }}
           contentFit="cover"
-          placeholder={BLURHASH}
-          transition={200}
+          placeholder={{ blurhash: BLURHASH }}
+          placeholderContentFit="cover"
+          transition={0}
           cachePolicy="memory-disk"
+          recyclingKey={property.images[0]}
         />
 
         {/* Property Details */}

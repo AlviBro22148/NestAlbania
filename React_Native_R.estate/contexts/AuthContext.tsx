@@ -1,5 +1,5 @@
-import api, { updateTokenCache } from "@/lib/axios-config";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import api, { updateTokenCache, clearTokenCache } from "@/lib/axios-config";
+import { authStorage } from "@/lib/storage";
 import { router } from "expo-router";
 
 import React, {
@@ -61,7 +61,7 @@ interface AuthContextType {
     email: string,
     password: string,
     phoneNumber: string,
-    city: string
+    city: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -88,18 +88,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     checkAuth();
   }, []);
 
-  // Check authentication status
+  // Check authentication status (MMKV is synchronous - much faster!)
   const checkAuth = async () => {
     try {
-      const accessToken = await AsyncStorage.getItem("accessToken");
-      const refreshToken = await AsyncStorage.getItem("refreshToken");
-
-      if (accessToken && refreshToken) {
+      // MMKV synchronous check - instant
+      if (authStorage.hasTokens()) {
         // Fetch user profile
         await fetchUserProfile();
       } else {
-        // No tokens found - set user to null
-        // Navigation will be handled by ProtectedRoute component
         setUser(null);
       }
     } catch (error) {
@@ -115,7 +111,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const response = await api.get("/api/auth/me");
 
-      // Backend now returns isAgent, isAdmin, canCreateProperties
       const userData = response.data;
 
       // Check if user is banned
@@ -123,8 +118,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setIsBanned(true);
         setBanReason(userData.banReason || "Your account has been banned.");
         setUser(null);
-        // Clear tokens
-        await AsyncStorage.multiRemove(["accessToken", "refreshToken", "userId"]);
+        // Clear tokens (MMKV - synchronous)
+        authStorage.clearAll();
         return;
       }
 
@@ -133,7 +128,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       setUser({
         ...userData,
-        // Ensure these fields exist (fallback to calculated values if backend doesn't send them)
         isAgent: userData.isAgent ?? userData.role === "Agent",
         isAdmin: userData.isAdmin ?? userData.role === "Admin",
         canCreateProperties:
@@ -141,12 +135,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           (userData.role === "Agent" || userData.role === "Admin"),
       });
 
-      // Store userId for token refresh
-      await AsyncStorage.setItem("userId", response.data.id.toString());
+      // Store userId (MMKV - synchronous)
+      authStorage.setUserId(response.data.id.toString());
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      // If fetching profile fails, clear tokens but don't navigate
-      await AsyncStorage.multiRemove(["accessToken", "refreshToken", "userId"]);
+      // Clear tokens on failure
+      authStorage.clearAll();
       setUser(null);
     }
   };
@@ -154,7 +148,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Login function with 2FA and ban support
   const login = async (
     username: string,
-    password: string
+    password: string,
   ): Promise<LoginResponse> => {
     try {
       const response = await api.post("/api/auth/login", {
@@ -187,17 +181,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Normal login (no 2FA)
       const { accessToken, refreshToken } = data;
 
-      // Store tokens in both AsyncStorage and cache
-      await AsyncStorage.setItem("accessToken", accessToken);
-      await AsyncStorage.setItem("refreshToken", refreshToken);
+      // Store tokens (MMKV - synchronous, instant!)
+      authStorage.setAccessToken(accessToken);
+      authStorage.setRefreshToken(refreshToken);
 
-      // Fetch user profile
+      // Fetch user profile (this saves userId)
       await fetchUserProfile();
 
-      // Store userId after fetching profile and update cache
-      if (user) {
-        const userId = user.id.toString();
-        await AsyncStorage.setItem("userId", userId);
+      // Update token cache for axios (userId now saved by fetchUserProfile)
+      const userId = authStorage.getUserId();
+      if (userId) {
         updateTokenCache(accessToken, refreshToken, userId);
       }
 
@@ -230,17 +223,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const { accessToken, refreshToken } = data;
 
-      // Store tokens in both AsyncStorage and cache
-      await AsyncStorage.setItem("accessToken", accessToken);
-      await AsyncStorage.setItem("refreshToken", refreshToken);
+      // Store tokens (MMKV - synchronous)
+      authStorage.setAccessToken(accessToken);
+      authStorage.setRefreshToken(refreshToken);
 
-      // Fetch user profile
+      // Fetch user profile (this saves userId)
       await fetchUserProfile();
 
-      // Store userId after fetching profile and update cache
-      if (user) {
-        const userId = user.id.toString();
-        await AsyncStorage.setItem("userId", userId);
+      // Update token cache
+      const userId = authStorage.getUserId();
+      if (userId) {
         updateTokenCache(accessToken, refreshToken, userId);
       }
 
@@ -248,7 +240,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       router.replace("/");
     } catch (error: any) {
       throw new Error(
-        error.response?.data?.message || "2FA verification failed"
+        error.response?.data?.message || "2FA verification failed",
       );
     }
   };
@@ -259,7 +251,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     email: string,
     password: string,
     phoneNumber: string,
-    city: string
+    city: string,
   ) => {
     try {
       const response = await fetch(
@@ -276,7 +268,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             phoneNumber,
             city,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -286,9 +278,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const data = await response.json();
 
-      // Save tokens
-      await AsyncStorage.setItem("accessToken", data.accessToken);
-      await AsyncStorage.setItem("refreshToken", data.refreshToken);
+      // Save tokens (MMKV - synchronous)
+      authStorage.setAccessToken(data.accessToken);
+      authStorage.setRefreshToken(data.refreshToken);
 
       // Fetch user profile
       const userResponse = await fetch(
@@ -297,7 +289,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           headers: {
             Authorization: `Bearer ${data.accessToken}`,
           },
-        }
+        },
       );
 
       if (userResponse.ok) {
@@ -310,8 +302,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             userData.canCreateProperties ??
             (userData.role === "Agent" || userData.role === "Admin"),
         });
-        // Store userId
-        await AsyncStorage.setItem("userId", userData.id.toString());
+        // Store userId (MMKV - synchronous)
+        authStorage.setUserId(userData.id.toString());
       }
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -320,10 +312,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   // Logout function
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
-      // Clear tokens from storage
-      await AsyncStorage.multiRemove(["accessToken", "refreshToken", "userId"]);
+      // Deactivate push token on backend before clearing tokens
+
+      // Clear tokens (MMKV - synchronous, instant!)
+      authStorage.clearAll();
+      authStorage.clearPushToken();
+
+      // Clear axios token cache
+      clearTokenCache();
 
       // Clear user state
       setUser(null);
@@ -335,7 +333,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } catch (error) {
       console.error("Logout error:", error);
     }
-  };
+  }, []);
 
   // Refresh user data
   const refreshUser = async () => {
@@ -343,47 +341,46 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   // Request agent role
-  const requestAgentRole = async () => {
+  const requestAgentRole = useCallback(async () => {
     try {
       const response = await api.post("/api/auth/request-agent-role");
-
-      // Return success message from backend
       return Promise.resolve(response.data);
     } catch (error: any) {
       console.error("Error requesting agent role:", error);
       throw new Error(
-        error.response?.data?.message || "Failed to request agent role"
+        error.response?.data?.message || "Failed to request agent role",
       );
     }
-  };
+  }, []);
 
-  // Clear ban status (used when user acknowledges ban and goes to login)
-  const clearBanStatus = () => {
+  // Clear ban status
+  const clearBanStatus = useCallback(() => {
     setIsBanned(false);
     setBanReason(null);
-  };
+  }, []);
 
-  // Memoize context value to prevent unnecessary re-renders
-  const value = useMemo<AuthContextType>(() => ({
-    user,
-    loading,
-    isAuthenticated: !!user,
-    // Role check helpers
-    isAgent: user?.role === "Agent" || false,
-    isAdmin: user?.role === "Admin" || false,
-    canCreateProperties:
-      user?.role === "Agent" || user?.role === "Admin" || false,
-    // Ban status
-    isBanned,
-    banReason,
-    login,
-    loginWith2FA,
-    register,
-    logout,
-    refreshUser,
-    requestAgentRole,
-    clearBanStatus,
-  }), [user, loading, isBanned, banReason]);
+  // Memoize context value
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      loading,
+      isAuthenticated: !!user,
+      isAgent: user?.role === "Agent" || false,
+      isAdmin: user?.role === "Admin" || false,
+      canCreateProperties:
+        user?.role === "Agent" || user?.role === "Admin" || false,
+      isBanned,
+      banReason,
+      login,
+      loginWith2FA,
+      register,
+      logout,
+      refreshUser,
+      requestAgentRole,
+      clearBanStatus,
+    }),
+    [user, loading, isBanned, banReason],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

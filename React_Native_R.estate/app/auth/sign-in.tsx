@@ -4,24 +4,39 @@ import InputModal from "@/components/InputModal";
 import images from "@/constants/images";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { shadows, shadowsDark } from "@/constants/shadows";
+import { radius, spacing, layout } from "@/constants/spacing";
 import { router } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
-  ScrollView,
+  Platform,
+  Pressable,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  FadeInDown,
+  FadeInUp,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function SignIn() {
   const { login, loginWith2FA, isBanned } = useAuth();
   const { showAlert, showToast } = useAlert();
+  const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -37,6 +52,22 @@ export default function SignIn() {
   const [verificationCode, setVerificationCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [tempUsername, setTempUsername] = useState("");
+
+  // Animation values
+  const buttonScale = useSharedValue(1);
+  const cardShadow = isDark ? shadowsDark.lg : shadows.lg;
+
+  const handleButtonPressIn = () => {
+    buttonScale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+  };
+
+  const handleButtonPressOut = () => {
+    buttonScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
 
   const openInputModal = (
     field: string,
@@ -140,26 +171,36 @@ export default function SignIn() {
   }
 
   return (
-    <SafeAreaView className="bg-white h-full">
-      <ScrollView
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
       >
-        <Image
-          resizeMode="contain"
-          source={images.onboarding}
-          style={{ height: 280 }}
-          className="w-full mt-6"
-        />
+        {/* Hero Image */}
+        <Animated.View entering={FadeInDown.duration(600).delay(100)}>
+          <Image
+            resizeMode="contain"
+            source={images.onboarding}
+            style={styles.heroImage}
+          />
+        </Animated.View>
 
-        <View className="px-10 mt-9">
+        {/* Form Card */}
+        <Animated.View
+          entering={FadeInUp.duration(600).delay(200)}
+          style={[styles.formCard, { backgroundColor: colors.surface }, cardShadow]}
+        >
           {/* Title Text */}
-          <Text className="text-2xl mt-6 text-center font-rubik-bold mb-2">
-            {t("auth.welcomeBack")}
-          </Text>
+          <View style={styles.headerContainer}>
+            <View style={[styles.accentLine, { backgroundColor: colors.accent }]} />
+            <Text style={[styles.title, { color: colors.text }]}>
+              {t("auth.welcomeBack")}
+            </Text>
+          </View>
 
           {/* Username Input */}
-          <TouchableOpacity
+          <Pressable
             onPress={() =>
               openInputModal(
                 "username",
@@ -170,22 +211,23 @@ export default function SignIn() {
               )
             }
             disabled={loading}
-            className="mb-4"
+            style={styles.inputContainer}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
               {t("auth.username")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
-              <Text
-                className={`font-rubik-regular ${username ? "text-black" : "text-gray-400"}`}
-              >
+            <View style={[styles.inputField, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+              <Text style={[
+                styles.inputText,
+                { color: username ? colors.text : colors.textMuted }
+              ]}>
                 {username || t("placeholders.enterUsername")}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Password Input */}
-          <TouchableOpacity
+          <Pressable
             onPress={() =>
               openInputModal(
                 "password",
@@ -198,51 +240,58 @@ export default function SignIn() {
               )
             }
             disabled={loading}
-            className="mb-6"
+            style={styles.inputContainer}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
               {t("auth.password")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
-              <Text
-                className={`font-rubik-regular ${password ? "text-black" : "text-gray-400"}`}
-              >
+            <View style={[styles.inputField, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+              <Text style={[
+                styles.inputText,
+                { color: password ? colors.text : colors.textMuted }
+              ]}>
                 {password ? "••••••••" : t("placeholders.enterPassword")}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
 
           {/* Submit Button */}
-          <TouchableOpacity
+          <AnimatedPressable
             onPress={handleLogin}
-            className="bg-blue-500 rounded-full py-4 px-6 items-center"
+            onPressIn={handleButtonPressIn}
+            onPressOut={handleButtonPressOut}
             disabled={loading}
+            style={[
+              styles.submitButton,
+              { backgroundColor: colors.accent },
+              buttonAnimatedStyle,
+            ]}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text className="text-white font-rubik-bold text-lg">
+              <Text style={styles.submitButtonText}>
                 {t("auth.signIn")}
               </Text>
             )}
-          </TouchableOpacity>
+          </AnimatedPressable>
 
           {/* Toggle to Register */}
-          <View className="mt-6 flex-row justify-center mb-8">
-            <Text className="text-gray-600 font-rubik-regular">
+          <View style={styles.toggleContainer}>
+            <Text style={[styles.toggleText, { color: colors.textSecondary }]}>
               {t("auth.dontHaveAccount")}
             </Text>
-            <TouchableOpacity
+            <Pressable
               onPress={() => router.push("/auth/sign-up")}
               disabled={loading}
             >
-              <Text className="text-blue-500 font-rubik-bold ml-1">
+              <Text style={[styles.toggleLink, { color: colors.primary }]}>
                 {t("auth.register")}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
-        </View>
-      </ScrollView>
+        </Animated.View>
+      </Animated.ScrollView>
 
       {/* Input Modal */}
       {modalConfig && (
@@ -266,51 +315,217 @@ export default function SignIn() {
         visible={show2FAModal}
         transparent={true}
         animationType="fade"
+        statusBarTranslucent={true}
         onRequestClose={() => {
           setShow2FAModal(false);
           setVerificationCode("");
         }}
       >
-        <View className="flex-1 bg-black/50 justify-center items-center px-7">
-          <View className="bg-white rounded-2xl p-6 w-full">
-            <Text className="text-xl font-rubik-bold mb-4">
-              {t("security.twoFactorAuth")}
-            </Text>
-            <Text className="text-black-200 font-rubik mb-4">
-              {t("security.description")}
-            </Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "padding"}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { backgroundColor: colors.surface }, cardShadow]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {t("security.twoFactorAuth")}
+              </Text>
+              <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
+                {t("security.description")}
+              </Text>
 
-            <TextInput
-              className="border border-primary-200 rounded-lg px-4 py-3 font-rubik text-center text-2xl tracking-widest mb-4"
-              placeholder="000000"
-              keyboardType="number-pad"
-              maxLength={6}
-              value={verificationCode}
-              onChangeText={setVerificationCode}
-            />
+              <TextInput
+                style={[
+                  styles.codeInput,
+                  { backgroundColor: colors.surfaceElevated, borderColor: colors.primary, color: colors.text }
+                ]}
+                placeholder="000000"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={verificationCode}
+                onChangeText={setVerificationCode}
+              />
 
-            <View className="flex flex-row gap-3">
-              <CustomButton
-                title={t("security.cancel")}
-                onPress={() => {
-                  setShow2FAModal(false);
-                  setVerificationCode("");
-                }}
-                className="bg-gray-200 flex-1"
-                textVariant="primary"
-              />
-              <CustomButton
-                title={
-                  verifying ? t("security.verifying") : t("security.verify")
-                }
-                onPress={handleVerify2FA}
-                className="bg-primary-300 flex-1"
-                disabled={verifying}
-              />
+              <View style={styles.modalButtons}>
+                <Pressable
+                  onPress={() => {
+                    setShow2FAModal(false);
+                    setVerificationCode("");
+                  }}
+                  style={[styles.modalButtonSecondary, { backgroundColor: colors.surfaceElevated }]}
+                >
+                  <Text style={[styles.modalButtonSecondaryText, { color: colors.text }]}>
+                    {t("security.cancel")}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleVerify2FA}
+                  disabled={verifying}
+                  style={[styles.modalButtonPrimary, { backgroundColor: colors.primary }]}
+                >
+                  {verifying ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalButtonPrimaryText}>
+                      {t("security.verify")}
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  heroImage: {
+    width: '100%',
+    height: 260,
+    marginTop: spacing.lg,
+  },
+  formCard: {
+    flex: 1,
+    marginTop: -20,
+    borderTopLeftRadius: radius.cardLg,
+    borderTopRightRadius: radius.cardLg,
+    paddingHorizontal: layout.screenPaddingX + 10,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing["2xl"],
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
+  },
+  accentLine: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
+    marginRight: spacing.sm,
+  },
+  title: {
+    fontSize: 24,
+    fontFamily: 'Rubik-Bold',
+    letterSpacing: -0.5,
+  },
+  inputContainer: {
+    marginBottom: spacing.base,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontFamily: 'Rubik-Medium',
+    marginBottom: spacing.sm,
+  },
+  inputField: {
+    borderWidth: 1,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.md,
+  },
+  inputText: {
+    fontSize: 16,
+    fontFamily: 'Rubik-Regular',
+  },
+  submitButton: {
+    paddingVertical: spacing.base,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.lg,
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: 'Rubik-Bold',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontFamily: 'Rubik-Regular',
+  },
+  toggleLink: {
+    fontSize: 14,
+    fontFamily: 'Rubik-Bold',
+    marginLeft: 4,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  modalCard: {
+    width: '100%',
+    borderRadius: radius.cardLg,
+    padding: spacing.xl,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Rubik-Bold',
+    marginBottom: spacing.sm,
+  },
+  modalDescription: {
+    fontSize: 14,
+    fontFamily: 'Rubik-Regular',
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  codeInput: {
+    borderWidth: 2,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.md,
+    fontFamily: 'Rubik-Bold',
+    fontSize: 24,
+    textAlign: 'center',
+    letterSpacing: 8,
+    marginBottom: spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radius.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonSecondaryText: {
+    fontSize: 15,
+    fontFamily: 'Rubik-SemiBold',
+  },
+  modalButtonPrimary: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radius.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonPrimaryText: {
+    fontSize: 15,
+    fontFamily: 'Rubik-SemiBold',
+    color: '#FFFFFF',
+  },
+});

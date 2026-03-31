@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback } from "react";
 import { Alert } from "react-native";
 
 interface ComparisonContextType {
@@ -16,48 +16,56 @@ const ComparisonContext = createContext<ComparisonContextType | undefined>(
 export const ComparisonProvider = ({ children }: { children: ReactNode }) => {
   const [comparisonList, setComparisonList] = useState<number[]>([]);
 
-  const addToComparison = (propertyId: number) => {
-    if (comparisonList.includes(propertyId)) {
-      Alert.alert(
-        "Already Added",
-        "This property is already in your comparison list"
-      );
-      return;
-    }
+  // Memoize all callbacks to prevent re-renders
+  const addToComparison = useCallback((propertyId: number) => {
+    setComparisonList(prev => {
+      if (prev.includes(propertyId)) {
+        Alert.alert(
+          "Already Added",
+          "This property is already in your comparison list"
+        );
+        return prev;
+      }
 
-    if (comparisonList.length >= 4) {
-      Alert.alert(
-        "Maximum Reached",
-        "You can only compare up to 4 properties at a time. Remove one to add another."
-      );
-      return;
-    }
+      if (prev.length >= 4) {
+        Alert.alert(
+          "Maximum Reached",
+          "You can only compare up to 4 properties at a time. Remove one to add another."
+        );
+        return prev;
+      }
 
-    setComparisonList([...comparisonList, propertyId]);
-  };
+      return [...prev, propertyId];
+    });
+  }, []);
 
-  const removeFromComparison = (propertyId: number) => {
-    setComparisonList(comparisonList.filter((id) => id !== propertyId));
-  };
+  const removeFromComparison = useCallback((propertyId: number) => {
+    setComparisonList(prev => prev.filter((id) => id !== propertyId));
+  }, []);
 
-  const clearComparison = () => {
+  const clearComparison = useCallback(() => {
     setComparisonList([]);
-  };
+  }, []);
 
-  const isInComparison = (propertyId: number) => {
-    return comparisonList.includes(propertyId);
-  };
+  // Use ref-based check to avoid function recreation
+  const comparisonListRef = React.useRef(comparisonList);
+  comparisonListRef.current = comparisonList;
+
+  const isInComparison = useCallback((propertyId: number) => {
+    return comparisonListRef.current.includes(propertyId);
+  }, []); // Empty deps - uses ref
+
+  // CRITICAL: Memoize context value - only primitive values in deps
+  const value = useMemo(() => ({
+    comparisonList,
+    addToComparison,
+    removeFromComparison,
+    clearComparison,
+    isInComparison,
+  }), [comparisonList, addToComparison, removeFromComparison, clearComparison]);
 
   return (
-    <ComparisonContext.Provider
-      value={{
-        comparisonList,
-        addToComparison,
-        removeFromComparison,
-        clearComparison,
-        isInComparison,
-      }}
-    >
+    <ComparisonContext.Provider value={value}>
       {children}
     </ComparisonContext.Provider>
   );

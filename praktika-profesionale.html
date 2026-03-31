@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+<meta charset="UTF-8">
+<title>Fletorja e Praktikës Profesionale - Alvi Peni</title>
+<style>
+  @page { margin: 2cm 2.5cm; size: A4; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #222; line-height: 1.4; }
+
+  /* ===== COVER PAGE ===== */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 90vh;
+    text-align: center;
+    page-break-after: always;
+    padding: 40px 20px;
+  }
+  .cover-title {
+    font-size: 22pt;
+    font-weight: bold;
+    color: #1a5276;
+    text-decoration: underline;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .cover-subtitle {
+    font-size: 11pt;
+    font-style: italic;
+    color: #555;
+    margin-bottom: 50px;
+  }
+  .student-table {
+    width: 80%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    text-align: left;
+  }
+  .student-table td {
+    padding: 9px 14px;
+    border: 1px solid #8fadd4;
+    font-size: 11pt;
+  }
+  .student-table td:first-child {
+    font-weight: bold;
+    color: #1a5276;
+    background-color: #d6e4f0;
+    width: 45%;
+  }
+  .student-table td:last-child {
+    background-color: #ffffff;
+    font-weight: bold;
+  }
+
+  /* ===== MONTH SECTION ===== */
+  .month-section { margin-bottom: 10px; }
+  .month-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    margin-top: 24px;
+    page-break-after: avoid;
+  }
+  .calendar-icon {
+    width: 46px;
+    height: 46px;
+    border: 2px solid #1a5276;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-right: 12px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .cal-top {
+    background: #1a5276;
+    color: white;
+    font-size: 7pt;
+    font-weight: bold;
+    text-align: center;
+    padding: 2px 0;
+    letter-spacing: 1px;
+  }
+  .cal-num {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16pt;
+    font-weight: bold;
+    color: #1a5276;
+    background: #fff;
+  }
+  .month-title {
+    font-size: 17pt;
+    font-weight: bold;
+    color: #111;
+  }
+
+  /* ===== ENTRY TABLE ===== */
+  .entry-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 18px;
+    page-break-inside: avoid;
+  }
+  .entry-header td {
+    background-color: #1a5276;
+    color: #ffffff;
+    padding: 8px 13px;
+    font-weight: bold;
+    font-size: 11pt;
+  }
+  .entry-header .date-cell {
+    width: 120px;
+    white-space: nowrap;
+  }
+  .entry-row td {
+    padding: 7px 13px;
+    border: 1px solid #aac0d8;
+    vertical-align: top;
+    font-size: 10.5pt;
+  }
+  .entry-row td.label {
+    font-weight: bold;
+    color: #1a5276;
+    background-color: #d6e4f0;
+    width: 28%;
+    white-space: nowrap;
+  }
+  .entry-row.odd td.value  { background-color: #ffffff; }
+  .entry-row.even td.value { background-color: #f0f6fb; }
+
+  /* ===== SUMMARY PAGE ===== */
+  .summary-section {
+    page-break-before: always;
+    margin-top: 30px;
+  }
+  .summary-title {
+    font-size: 15pt;
+    font-weight: bold;
+    color: #1a5276;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #1a5276;
+    padding-bottom: 6px;
+  }
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .summary-table th {
+    background-color: #1a5276;
+    color: white;
+    padding: 9px 14px;
+    text-align: left;
+    font-size: 11pt;
+  }
+  .summary-table td {
+    padding: 8px 14px;
+    border: 1px solid #aac0d8;
+    font-size: 11pt;
+  }
+  .summary-table tr:nth-child(even) td { background-color: #f0f6fb; }
+  .summary-table tr.total td {
+    font-weight: bold;
+    background-color: #d6e4f0;
+  }
+  .footer {
+    margin-top: 50px;
+    text-align: center;
+    font-style: italic;
+    color: #666;
+    font-size: 10pt;
+  }
+
+  /* ===== SIGNATURE SECTION ===== */
+  .signature-section {
+    margin-top: 60px;
+    page-break-inside: avoid;
+  }
+  .signature-title {
+    background-color: #b0c4d8;
+    color: #1a3a5c;
+    font-size: 13pt;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px 14px;
+    border: 1px solid #8fadd4;
+    border-bottom: none;
+  }
+  .signature-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .signature-table th {
+    background-color: #d6e4f0;
+    color: #1a5276;
+    font-size: 10.5pt;
+    font-weight: bold;
+    padding: 10px 14px;
+    border: 1px solid #8fadd4;
+    text-align: center;
+    width: 33.33%;
+  }
+  .signature-table td {
+    background-color: #ffffff;
+    padding: 14px;
+    border: 1px solid #8fadd4;
+    text-align: center;
+    vertical-align: top;
+  }
+  .signature-name {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #1a5276;
+  }
+  .signature-line {
+    border-top: 1px solid #333;
+    width: 80%;
+    margin: 0 auto;
+    margin-top: 80px;
+  }
+
+  /* Print helpers */
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!--                        COVER PAGE                           -->
+<!-- ============================================================ -->
+<div class="cover">
+  <div class="cover-title">FLETORJA E PRAKTIKËS PROFESIONALE</div>
+  <div class="cover-subtitle">Dokumenti 40 - Praktika Profesionale në Biznes</div>
+
+  <table class="student-table">
+    <tr>
+      <td>Emri i nxënësit:</td>
+      <td>Alvi Peni</td>
+    </tr>
+    <tr>
+      <td>Vendi i Praktikës:</td>
+      <td>Switch Technologies, Elbasan</td>
+    </tr>
+    <tr>
+      <td>Profili/Drejtimi:</td>
+      <td>Programim</td>
+    </tr>
+    <tr>
+      <td>Klasa:</td>
+      <td>12B</td>
+    </tr>
+    <tr>
+      <td>Periudha e Praktikës:</td>
+      <td>Nëntor 2025 – Mars 2026</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!--                      NËNTOR 2025                            -->
+<!-- ============================================================ -->
+<div class="month-section">
+  <div class="month-header">
+    <div class="calendar-icon">
+      <div class="cal-top">NËN</div>
+      <div class="cal-num">7</div>
+    </div>
+    <span class="month-title">Nëntor 2025</span>
+  </div>
+
+  <!-- 07/11/2025 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">07/11/2025</td>
+      <td>Konfigurimi i Mjedisit të Zhvillimit</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Instalimi i Visual Studio, .NET SDK dhe Expo CLI; konfigurimi i Android Studio dhe iOS Simulator; krijimi i strukturës bazë të projektit React Native me TypeScript; lidhja me repository Git.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Konfigurimi i mjedisit të zhvillimit për React Native me TypeScript dhe C# Web API; menaxhimi i versioneve me Git; instalimi dhe konfigurimi i SDK-ve mobile.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Organizimi i punës; aftësia për të ndjekur dokumentacionin teknik; punë e pavarur në zgjidhjen e problemeve të instalimit.</td>
+    </tr>
+  </table>
+
+  <!-- 14/11/2025 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">14/11/2025</td>
+      <td>Dizajnimi i Arkitekturës së Aplikacionit</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i diagramës së arkitekturës; përcaktimi i strukturës së folderave për React Native dhe ASP.NET Core Web API; dizajnimi i modeleve të të dhënave me Entity Framework; planifikimi i API endpoints RESTful.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Dizajnimi i arkitekturës software; modelimi i të dhënave me Entity Framework Core; planifikimi i sistemeve client-server.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Të menduarit kritik dhe analitik; aftësia për të parashikuar nevojat e ardhshme të projektit.</td>
+    </tr>
+  </table>
+
+  <!-- 21/11/2025 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">21/11/2025</td>
+      <td>Implementimi i Sistemit të Autentifikimit</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i faqeve të login dhe regjistrim me React Native TypeScript; implementimi i JWT tokens në ASP.NET Core Identity; integrimi me C# Web API; ruajtja e sigurt e kredencialeve me SecureStore.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Implementimi i autentifikimit me JWT në C# Web API; menaxhimi i gjendjes së përdoruesit me Context API; siguria e aplikacioneve mobile.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Vëmendje ndaj detajeve të sigurisë; punë metodike dhe e organizuar.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!--                      DHJETOR 2025                           -->
+<!-- ============================================================ -->
+<div class="month-section">
+  <div class="month-header">
+    <div class="calendar-icon">
+      <div class="cal-top">DHJ</div>
+      <div class="cal-num">5</div>
+    </div>
+    <span class="month-title">Dhjetor 2025</span>
+  </div>
+
+  <!-- 05/12/2025 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">05/12/2025</td>
+      <td>Zhvillimi i Faqes Kryesore (Home Screen)</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Dizajnimi i UI për faqen kryesore me React Native TypeScript; implementimi i seksioneve "Today's Choice", "Featured" dhe "Green Homes"; krijimi i komponentëve të kartave me memo optimization.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Zhvillimi i ndërfaqeve me React Native TypeScript; stilizimi me StyleSheet; krijimi i komponentëve të ripërdorshëm me TypeScript interfaces.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Kreativiteti në dizajn; vëmendje ndaj përvojës së përdoruesit (UX).</td>
+    </tr>
+  </table>
+
+  <!-- 12/12/2025 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">12/12/2025</td>
+      <td>Implementimi i Listës së Pronave (Explore Screen)</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i faqes Explore me FlashList; implementimi i kërkimit dhe filtrimit; optimizimi i performancës së listës; infinite scroll pagination.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Optimizimi i performancës së listave; implementimi i kërkimit në kohë reale; menaxhimi i gjendjes me React Query.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Fokusi në performancë dhe efikasitet; zgjidhja e problemeve komplekse.</td>
+    </tr>
+  </table>
+
+  <!-- 19/12/2025 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">19/12/2025</td>
+      <td>Sistemi i Filtrave dhe Kërkimit</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i modalit të filtrave; implementimi i filtrave sipas çmimit, dhomave, llojit; debouncing për kërkim; ruajtja e filtrave aktive.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Dizajnimi i sistemeve të filtrimit; optimizimi i kërkimeve; menaxhimi i gjendjes komplekse.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Logjikë e fortë programuese; aftësi për të thjeshtuar proceset komplekse.</td>
+    </tr>
+  </table>
+
+  <!-- 26/12/2025 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">26/12/2025</td>
+      <td>Faqja e Detajeve të Pronës</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i faqes së detajeve të pronës; galeria e imazheve; informacionet e pronës; butoni i kontaktit me pronarin.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Krijimi i faqeve dinamike; menaxhimi i imazheve me expo-image; navigimi mes faqeve.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Vëmendje ndaj detajeve vizuale; organizimi i informacionit në mënyrë të qartë.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!--                       JANAR 2026                            -->
+<!-- ============================================================ -->
+<div class="month-section">
+  <div class="month-header">
+    <div class="calendar-icon">
+      <div class="cal-top">JAN</div>
+      <div class="cal-num">9</div>
+    </div>
+    <span class="month-title">Janar 2026</span>
+  </div>
+
+  <!-- 09/01/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">09/01/2026</td>
+      <td>Sistemi i Preferencave të Përdoruesit</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i wizard-it të preferencave; ruajtja e preferencave në backend; personalizimi i rekomandimeve bazuar në preferenca.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Implementimi i sistemeve të personalizimit; ruajtja dhe sinkronizimi i të dhënave; UX për procese me hapa.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Fokusi në përvojën e përdoruesit; empati për nevojat e klientëve.</td>
+    </tr>
+  </table>
+
+  <!-- 16/01/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">16/01/2026</td>
+      <td>Implementimi i Dark Mode</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i ThemeContext; definimi i ngjyrave për light/dark mode; aplikimi i temës në të gjitha komponentët; ruajtja e preferencës.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Implementimi i sistemeve të temave; menaxhimi i gjendjes globale me Context API; stilizimi dinamik.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Vëmendje ndaj aksesueshmërisë; konsistencë në dizajn.</td>
+    </tr>
+  </table>
+
+  <!-- 23/01/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">23/01/2026</td>
+      <td>Sistemi i Njoftimeve (Notifications)</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Integrimi i push notifications me Expo në React Native; krijimi i faqes së njoftimeve me TypeScript; menaxhimi i token-eve të pajisjeve në C# backend; dërgimi i njoftimeve nga ASP.NET Core.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Implementimi i push notifications me Expo; integrimi me Firebase Cloud Messaging në C#; menaxhimi i PushToken entities.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Zgjidhja e problemeve të integrimit; punë e kujdesshme me API të jashtme.</td>
+    </tr>
+  </table>
+
+  <!-- 30/01/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">30/01/2026</td>
+      <td>Sistemi i Chat-it në Kohë Reale</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Implementimi i SignalR në ASP.NET Core për chat real-time; krijimi i ndërfaqes së chat-it me React Native TypeScript; menaxhimi i mesazheve të palexuara; lista e bisedave me ChatContext.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Zhvillimi i aplikacioneve real-time me C# SignalR; integrimi i SignalR client në React Native; menaxhimi i WebSocket connections.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Përballimi i sfidave teknike komplekse; durimi në debugging.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!--                      SHKURT 2026                            -->
+<!-- ============================================================ -->
+<div class="month-section">
+  <div class="month-header">
+    <div class="calendar-icon">
+      <div class="cal-top">SHK</div>
+      <div class="cal-num">6</div>
+    </div>
+    <span class="month-title">Shkurt 2026</span>
+  </div>
+
+  <!-- 06/02/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">06/02/2026</td>
+      <td>Funksionaliteti "Like" dhe Krahasimi i Pronave</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Implementimi i sistemit të "like"; krijimi i faqes së pronave të preferuara; funksionaliteti i krahasimit të pronave; optimistic updates.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Menaxhimi i gjendjes me Context API; optimistic UI updates; sinkronizimi me backend.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Fokusi në përvojën e shpejtë të përdoruesit; zgjidhje kreative të problemeve.</td>
+    </tr>
+  </table>
+
+  <!-- 13/02/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">13/02/2026</td>
+      <td>Analiza e Tregut (Market Analysis)</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i faqes së analizës së tregut; vizualizimi i të dhënave me grafikë; statistikat e çmimeve sipas qyteteve; trendet e tregut.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Vizualizimi i të dhënave; krijimi i grafikëve interaktive; analiza e të dhënave.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Aftësia për të interpretuar të dhëna; prezantimi i informacionit në mënyrë të kuptueshme.</td>
+    </tr>
+  </table>
+
+  <!-- 20/02/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">20/02/2026</td>
+      <td>Faqja e Profilit dhe Cilësimet</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i faqes së profilit; ndryshimi i informacioneve personale; cilësimet e njoftimeve; zgjedhja e gjuhës dhe temës.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Krijimi i formave të editimit; validimi i të dhënave; menaxhimi i cilësimeve të përdoruesit.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Vëmendje ndaj privatësisë së përdoruesit; organizimi i opsioneve në mënyrë intuitive.</td>
+    </tr>
+  </table>
+
+  <!-- 27/02/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">27/02/2026</td>
+      <td>Optimizimi i Performancës</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Analiza e performancës me React DevTools; optimizimi i re-render-ave; memorizimi i komponentëve; reduktimi i përdorimit të CPU.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Profiling dhe optimizimi i performancës; përdorimi i memo, useCallback, useMemo; analiza e bottleneck-eve.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Të menduarit analitik; durimi në procesin e optimizimit.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!--                       MARS 2026                             -->
+<!-- ============================================================ -->
+<div class="month-section">
+  <div class="month-header">
+    <div class="calendar-icon">
+      <div class="cal-top">MAR</div>
+      <div class="cal-num">6</div>
+    </div>
+    <span class="month-title">Mars 2026</span>
+  </div>
+
+  <!-- 06/03/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">06/03/2026</td>
+      <td>Admin Dashboard - Konfigurimi Fillestar</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i projektit React.js për admin dashboard; konfigurimi i React Router; implementimi i layout-it bazë me sidebar dhe header; integrimi me C# Web API endpoints.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Zhvillimi me React.js dhe JavaScript; konfigurimi i Vite; strukturimi i projekteve web; konsumimi i ASP.NET Core API.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Organizimi i punës në projekte paralele; adaptimi me teknologji të ndryshme.</td>
+    </tr>
+  </table>
+
+  <!-- 13/03/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">13/03/2026</td>
+      <td>Admin Dashboard - Menaxhimi i Pronave</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i tabelës së pronave me React.js; funksionaliteti CRUD për prona duke thirrur C# Web API endpoints; filtrat dhe kërkimi; paginimi i të dhënave me server-side pagination.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Krijimi i tabelave interaktive me React; implementimi i operacioneve CRUD me ASP.NET Core; menaxhimi i të dhënave me Entity Framework.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Efikasiteti në punë; organizimi i ndërfaqes administrative.</td>
+    </tr>
+  </table>
+
+  <!-- 20/03/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">20/03/2026</td>
+      <td>Admin Dashboard - Menaxhimi i Përdoruesve</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Lista e përdoruesve; menaxhimi i roleve (admin, agent, user); aprovimi i kërkesave për agjent; bllokimi/aktivizimi i përdoruesve.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Implementimi i sistemeve të autorizimit; menaxhimi i roleve dhe lejeve; siguria administrative.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Përgjegjshmëria në menaxhimin e të dhënave sensitive; vendimmarrje e kujdesshme.</td>
+    </tr>
+  </table>
+
+  <!-- 27/03/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">27/03/2026</td>
+      <td>Admin Dashboard - Statistikat dhe Raportet</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i dashboard-it me statistika; grafikët e pronave dhe përdoruesve; raportet e aktivitetit; eksportimi i të dhënave.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Vizualizimi i të dhënave me Chart.js; krijimi i raporteve; analiza e metrikave të biznesit.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Interpretimi i të dhënave për vendimmarrje; prezantimi vizual i informacionit.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!--                       PRILL 2026                            -->
+<!-- ============================================================ -->
+<div class="month-section">
+  <div class="month-header">
+    <div class="calendar-icon">
+      <div class="cal-top">PRI</div>
+      <div class="cal-num">3</div>
+    </div>
+    <span class="month-title">Prill 2026</span>
+  </div>
+
+  <!-- 03/04/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">03/04/2026</td>
+      <td>Admin Dashboard - Menaxhimi i Blog-ut</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Krijimi i editorit të blog-ut; menaxhimi i artikujve; upload i imazheve; publikimi dhe draft-et.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Implementimi i rich text editor; menaxhimi i mediave; sistemi i publikimit.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Kreativiteti në krijimin e mjeteve për krijues përmbajtjeje; vëmendje ndaj UX.</td>
+    </tr>
+  </table>
+
+  <!-- 10/04/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">10/04/2026</td>
+      <td>Testimi dhe Debugging</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Testimi i funksionaliteteve në iOS dhe Android; identifikimi dhe rregullimi i bug-eve; testimi i performancës; testimi i UI/UX.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Testimi manual i aplikacioneve mobile; debugging me React Native Debugger; testimi cross-platform.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Vëmendje ndaj detajeve; durimi në procesin e testimit; raportimi i qartë i problemeve.</td>
+    </tr>
+  </table>
+
+  <!-- 17/04/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">17/04/2026</td>
+      <td>Përmirësime të Sigurisë dhe Validimi</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Auditimi i sigurisë së kodit; validimi i inputeve; mbrojtja nga sulmet XSS dhe injection; implementimi i HTTPS.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Siguria e aplikacioneve web dhe mobile; validimi i të dhënave; praktikat më të mira të sigurisë.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Ndërgjegjësimi për rreziqet e sigurisë; punë e kujdesshme me të dhëna sensitive.</td>
+    </tr>
+  </table>
+
+  <!-- 24/04/2026 -->
+  <table class="entry-table">
+    <tr class="entry-header">
+      <td class="date-cell">24/04/2026</td>
+      <td>Përgatitja për Publikim dhe Dokumentimi</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Vendi i punës:</td>
+      <td class="value">Switch Technologies</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Koha:</td>
+      <td class="value">1 ditë / 8 orë</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Veprimtaritë e zhvilluara:</td>
+      <td class="value">Përgatitja e build-eve për App Store dhe Play Store; krijimi i dokumentacionit teknik; optimizimi final; përgatitja e materialeve promovuese.</td>
+    </tr>
+    <tr class="entry-row even">
+      <td class="label">Kompetenca profesionale:</td>
+      <td class="value">Procesi i publikimit në app stores; krijimi i dokumentacionit; optimizimi për prodhim.</td>
+    </tr>
+    <tr class="entry-row odd">
+      <td class="label">Kompetenca personale:</td>
+      <td class="value">Përfundimi i suksesshëm i projekteve; dokumentimi i qartë; përgatitja për dorëzim.</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!--                     SUMMARY PAGE                            -->
+<!-- ============================================================ -->
+<div class="summary-section">
+  <div class="summary-title">Përmbledhje e Praktikës Profesionale</div>
+
+  <table class="summary-table">
+    <thead>
+      <tr>
+        <th>Muaji</th>
+        <th>Numri i Ditëve</th>
+        <th>Orët Totale</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Nëntor 2025</td>
+        <td>3 ditë</td>
+        <td>24 orë</td>
+      </tr>
+      <tr>
+        <td>Dhjetor 2025</td>
+        <td>4 ditë</td>
+        <td>32 orë</td>
+      </tr>
+      <tr>
+        <td>Janar 2026</td>
+        <td>4 ditë</td>
+        <td>32 orë</td>
+      </tr>
+      <tr>
+        <td>Shkurt 2026</td>
+        <td>4 ditë</td>
+        <td>32 orë</td>
+      </tr>
+      <tr>
+        <td>Mars 2026</td>
+        <td>4 ditë</td>
+        <td>32 orë</td>
+      </tr>
+      <tr>
+        <td>Prill 2026</td>
+        <td>4 ditë</td>
+        <td>32 orë</td>
+      </tr>
+      <tr class="total">
+        <td>TOTALI</td>
+        <td>23 ditë</td>
+        <td>184 orë</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <p>Dokumenti i përgatituar për Switch Technologies - Projekti NestAlbania</p>
+    <p>Nxënësi: <strong>Alvi Peni</strong> &nbsp;|&nbsp; Klasa: 12B &nbsp;|&nbsp; Periudha: Nëntor 2025 – Mars 2026</p>
+  </div>
+
+  <!-- Signature Section -->
+  <div class="signature-section">
+    <div class="signature-title">NËNSHKRIMET ZYRTARE</div>
+    <table class="signature-table">
+      <thead>
+        <tr>
+          <th>Nënshkrimi i praktikantit</th>
+          <th>Nënshkrimi i instruktorit në biznes</th>
+          <th>Nënshkrimi i mësuesit të praktikës</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="signature-name">Alvi Peni</div>
+            <div class="signature-line"></div>
+          </td>
+          <td>
+            <div class="signature-name">Deivid Teta</div>
+            <div class="signature-line"></div>
+          </td>
+          <td>
+            <div class="signature-name">Endere Shabanaj</div>
+            <div class="signature-line"></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</body>
+</html>

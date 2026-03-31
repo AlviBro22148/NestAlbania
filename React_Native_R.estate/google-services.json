@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "897900968584",
+    "project_id": "nestalbania-7da10",
+    "storage_bucket": "nestalbania-7da10.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:897900968584:android:6f63f3e5ff33a17649fd3d",
+        "android_client_info": {
+          "package_name": "com.nestalbania.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDI7ACkcJA5D27HYbdVGqkaZWkhQ5klWOI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

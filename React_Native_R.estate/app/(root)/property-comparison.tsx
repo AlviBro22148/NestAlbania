@@ -52,7 +52,7 @@ interface Property {
 export default function PropertyComparisonScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams();
-  const handleBack = useBackNavigation("/(root)/(tabs)/explore");
+  const handleBack = useBackNavigation("/(root)/explore");
   const propertyIds = (params.ids as string)?.split(",").map(Number) || [];
 
   const [properties, setProperties] = useState<Property[]>([]);
@@ -239,7 +239,7 @@ export default function PropertyComparisonScreen() {
                 </Text>
                 <TouchableOpacity
                   onPress={() =>
-                    router.push(`/(root)/(tabs)/properties/${property.id}`)
+                    router.push(`/(root)/properties/${property.id}`)
                   }
                   className="mt-3 bg-primary-100 py-2 rounded-lg"
                 >
@@ -463,3 +463,4 @@ export default function PropertyComparisonScreen() {
     </SafeAreaView>
   );
 }
+

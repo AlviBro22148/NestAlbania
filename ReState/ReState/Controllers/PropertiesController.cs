@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ReState.Data;
@@ -32,7 +32,325 @@ namespace ReState.Controllers
             _notificationService = notificationService;
         }
 
+        // GET: api/properties/home - Combined endpoint for home screen (reduces API calls from 4 to 1)
+        [HttpGet("home")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetHomeData()
+        {
+            try
+            {
+                // Run queries sequentially to identify which one fails
+                List<PropertySummaryResponseDto> featured;
+                List<PropertySummaryResponseDto> todaysChoice;
+                List<PropertySummaryResponseDto> greenHomes;
+                YourChoiceResult? yourChoiceResult = null;
 
+                try
+                {
+                    featured = await GetFeaturedPropertiesData();
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new { message = "Error in GetFeaturedPropertiesData", error = ex.Message, stack = ex.StackTrace });
+                }
+
+                try
+                {
+                    todaysChoice = await GetTodaysChoiceData();
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new { message = "Error in GetTodaysChoiceData", error = ex.Message, stack = ex.StackTrace });
+                }
+
+                try
+                {
+                    greenHomes = await GetGreenHomesData();
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new { message = "Error in GetGreenHomesData", error = ex.Message, stack = ex.StackTrace });
+                }
+
+                // Check if user is authenticated for personalized content
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userIdString) && Guid.TryParse(userIdString, out Guid userId))
+                {
+                    try
+                    {
+                        yourChoiceResult = await GetYourChoiceData(userId, 1, 10);
+                    }
+                    catch (Exception ex)
+                    {
+                        return StatusCode(500, new { message = "Error in GetYourChoiceData", error = ex.Message, stack = ex.StackTrace });
+                    }
+                }
+
+                return Ok(new
+                {
+                    featured = featured,
+                    todaysChoice = todaysChoice,
+                    greenHomes = greenHomes,
+                    yourChoice = yourChoiceResult?.Properties ?? new List<PropertySummaryResponseDto>(),
+                    yourChoicePagination = yourChoiceResult?.Pagination
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error retrieving home data", error = ex.Message, stack = ex.StackTrace });
+            }
+        }
+
+        // Helper method for featured properties
+        // PERFORMANCE FIX: Single query + in-memory shuffle instead of N queries in a loop
+        private async Task<List<PropertySummaryResponseDto>> GetFeaturedPropertiesData()
+        {
+            // Fetch a limited pool of recent properties, then shuffle in memory
+            // This is much faster than the original N queries in a loop
+            var candidatePool = await _context.Properties
+                .Include(p => p.User)
+                .Where(p => p.Status == "Available")
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(20) // Get 20 candidates, pick 5 randomly
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (candidatePool.Count == 0)
+                return new List<PropertySummaryResponseDto>();
+
+            // Shuffle in memory and take 5
+            var random = new Random();
+            var properties = candidatePool
+                .OrderBy(x => random.Next())
+                .Take(5)
+                .ToList();
+
+            return properties.Select(MapToSummaryDto).ToList();
+        }
+
+        // Helper method for today's choice
+        // PERFORMANCE FIX: Fetch only recent/quality properties instead of ALL, then score in memory
+        private async Task<List<PropertySummaryResponseDto>> GetTodaysChoiceData()
+        {
+            var today = DateTime.UtcNow.Date;
+            var seed = today.Year * 10000 + today.Month * 100 + today.Day;
+            var random = new Random(seed);
+
+            // Fetch only the most recent 50 properties with good criteria (has images, recent)
+            // This limits memory usage while still providing variety for scoring
+            // Note: ImageUrls is the actual DB column, Images is a computed property
+            var candidateProperties = await _context.Properties
+                .Include(p => p.User)
+                .Where(p => p.Status == "Available")
+                .Where(p => !string.IsNullOrEmpty(p.ImageUrls)) // Only properties with images
+                .OrderByDescending(p => p.CreatedAt) // Prefer newer properties
+                .Take(50) // Limit candidates for in-memory scoring
+                .AsNoTracking()
+                .ToListAsync();
+
+            if (candidateProperties.Count == 0)
+                return new List<PropertySummaryResponseDto>();
+
+            // Score only the limited candidate set in memory
+            return candidateProperties
+                .Select(p => new { Property = p, Score = CalculatePropertyScore(p, today) })
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => random.Next())
+                .Take(5)
+                .Select(x => MapToSummaryDto(x.Property))
+                .ToList();
+        }
+
+        // Helper method for green homes
+        private async Task<List<PropertySummaryResponseDto>> GetGreenHomesData()
+        {
+            var properties = await _context.Properties
+                .Include(p => p.User)
+                .Where(p => p.Status == "Available" &&
+                           (p.HasLEEDCertification ||
+                            p.HasEnergyStarCertification ||
+                            p.HasSolarPanels ||
+                            p.HasEnergyEfficientAppliances ||
+                            p.HasLEDLighting ||
+                            p.HasSmartThermostats ||
+                            p.HasDoubleGlazedWindows ||
+                            p.HasRainwaterHarvesting ||
+                            p.HasGreenRoof))
+                .ToListAsync();
+
+            if (properties.Count == 0)
+                return new List<PropertySummaryResponseDto>();
+
+            return properties
+                .OrderByDescending(p => p.EcoScore)
+                .Take(10)
+                .Select(MapToSummaryDto)
+                .ToList();
+        }
+
+        // Helper class for your-choice result
+        private class YourChoiceResult
+        {
+            public List<PropertySummaryResponseDto> Properties { get; set; } = new();
+            public object? Pagination { get; set; }
+        }
+
+        // Helper method for your-choice (personalized)
+        private async Task<YourChoiceResult> GetYourChoiceData(Guid userId, int page, int pageSize)
+        {
+            var preferences = await _context.UserPreferences
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+
+            var query = _context.Properties
+                .Include(p => p.User)
+                .Where(p => p.Status == "Available")
+                .AsQueryable();
+
+            if (preferences != null)
+            {
+                var propertyTypes = preferences.PropertyTypesList;
+                if (propertyTypes.Any())
+                    query = query.Where(p => propertyTypes.Contains(p.PropertyType));
+
+                if (preferences.MinBedrooms.HasValue)
+                    query = query.Where(p => p.Bedrooms >= preferences.MinBedrooms.Value);
+                if (preferences.MaxBedrooms.HasValue)
+                    query = query.Where(p => p.Bedrooms <= preferences.MaxBedrooms.Value);
+
+                if (preferences.MinBathrooms.HasValue)
+                    query = query.Where(p => p.Bathrooms >= preferences.MinBathrooms.Value);
+                if (preferences.MaxBathrooms.HasValue)
+                    query = query.Where(p => p.Bathrooms <= preferences.MaxBathrooms.Value);
+
+                if (preferences.MinPrice.HasValue)
+                    query = query.Where(p => p.Price >= preferences.MinPrice.Value);
+                if (preferences.MaxPrice.HasValue)
+                    query = query.Where(p => p.Price <= preferences.MaxPrice.Value);
+
+                if (preferences.MinArea.HasValue)
+                    query = query.Where(p => p.Area >= preferences.MinArea.Value);
+                if (preferences.MaxArea.HasValue)
+                    query = query.Where(p => p.Area <= preferences.MaxArea.Value);
+
+                var cities = preferences.CitiesList;
+                if (cities.Any())
+                    query = query.Where(p => cities.Contains(p.City));
+
+                if (!string.IsNullOrEmpty(preferences.ListingType) && preferences.ListingType != "Both")
+                    query = query.Where(p => p.ListingType == preferences.ListingType);
+
+                if (preferences.WantsGarage == true)
+                    query = query.Where(p => p.HasGarage);
+                if (preferences.WantsPetFriendly == true)
+                    query = query.Where(p => p.IsPetFriendly);
+                if (preferences.WantsPool == true)
+                    query = query.Where(p => p.HasPool);
+                if (preferences.WantsGym == true)
+                    query = query.Where(p => p.HasGym);
+                if (preferences.WantsAirConditioning == true)
+                    query = query.Where(p => p.HasAirConditioning);
+
+                if (preferences.PrefersGreenHomes == true)
+                    query = query.Where(p =>
+                        p.HasLEEDCertification ||
+                        p.HasEnergyStarCertification ||
+                        p.HasSolarPanels ||
+                        p.HasEnergyEfficientAppliances);
+            }
+
+            var totalCount = await query.CountAsync();
+            pageSize = Math.Min(Math.Max(pageSize, 1), 50);
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var properties = await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new YourChoiceResult
+            {
+                Properties = properties.Select(MapToSummaryDto).ToList(),
+                Pagination = new
+                {
+                    currentPage = page,
+                    totalPages = totalPages,
+                    totalCount = totalCount,
+                    pageSize = pageSize
+                }
+            };
+        }
+
+        // Reusable DTO mapper (Full Detail)
+        private PropertyResponseDto MapToDto(Property p) => new PropertyResponseDto
+        {
+            Id = p.Id,
+            Title = p.Title,
+            Description = p.Description,
+            Address = p.Address,
+            Price = p.Price,
+            Bedrooms = p.Bedrooms,
+            Bathrooms = p.Bathrooms,
+            Area = p.Area,
+            PropertyType = p.PropertyType,
+            Status = p.Status,
+            Images = p.Images,
+            UserId = p.UserId,
+            OwnerName = p.User?.Username,
+            CreatedAt = p.CreatedAt,
+            OwnerPhone = p.User?.PhoneNumber,
+            OwnerEmail = p.User?.Email,
+            ListingType = p.ListingType,
+            MonthlyRent = p.MonthlyRent,
+            LeaseTermMonths = p.LeaseTermMonths,
+            SecurityDeposit = p.SecurityDeposit,
+            UtilitiesIncluded = p.UtilitiesIncluded,
+            FurnishedStatus = p.FurnishedStatus,
+            City = p.City,
+            Neighborhood = p.Neighborhood,
+            ZipCode = p.ZipCode,
+            LotSize = p.LotSize,
+            ParkingSpaces = p.ParkingSpaces,
+            HasGarage = p.HasGarage,
+            IsPetFriendly = p.IsPetFriendly,
+            HasInUnitLaundry = p.HasInUnitLaundry,
+            HasPool = p.HasPool,
+            HasGym = p.HasGym,
+            HasAirConditioning = p.HasAirConditioning,
+            YearBuilt = p.YearBuilt,
+            HasSolarPanels = p.HasSolarPanels,
+            HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
+            HasLEDLighting = p.HasLEDLighting,
+            HasSmartThermostats = p.HasSmartThermostats,
+            HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
+            HasRainwaterHarvesting = p.HasRainwaterHarvesting,
+            HasGreenRoof = p.HasGreenRoof,
+            HasEnergyStarCertification = p.HasEnergyStarCertification,
+            HasLEEDCertification = p.HasLEEDCertification,
+            LEEDLevel = p.LEEDLevel,
+            EcoScore = p.EcoScore
+        };
+
+        // Reusable DTO mapper (Lightweight Summary)
+        private PropertySummaryResponseDto MapToSummaryDto(Property p) => new PropertySummaryResponseDto
+        {
+            Id = p.Id,
+            Title = p.Title,
+            Address = p.Address,
+            Price = p.Price,
+            Bedrooms = p.Bedrooms,
+            Bathrooms = p.Bathrooms,
+            Area = p.Area,
+            PropertyType = p.PropertyType,
+            Status = p.Status,
+            Images = p.Images,
+            OwnerName = p.User?.Username,
+            ListingType = p.ListingType,
+            MonthlyRent = p.MonthlyRent,
+            City = p.City,
+            EcoScore = p.EcoScore,
+            CreatedAt = p.CreatedAt
+        };
 
 
         // GET: api/properties/featured
@@ -48,7 +366,7 @@ namespace ReState.Controllers
                     .CountAsync();
 
                 if (totalProperties == 0)
-                    return Ok(new List<PropertyResponseDto>());
+                    return Ok(new List<PropertySummaryResponseDto>());
 
                 var rand = new Random();
                 var selectedProperties = new List<Property>();
@@ -71,54 +389,7 @@ namespace ReState.Controllers
                 }
 
                 // Convert Data to DTO
-                var response = selectedProperties.Select(p => new PropertyResponseDto
-                {
-                    Id = p.Id,
-                    Title = p.Title,
-                    Description = p.Description,
-                    Address = p.Address,
-                    Price = p.Price,
-                    Bedrooms = p.Bedrooms,
-                    Bathrooms = p.Bathrooms,
-                    Area = p.Area,
-                    PropertyType = p.PropertyType,
-                    Status = p.Status,
-                    Images = p.Images,
-                    UserId = p.UserId,
-                    OwnerName = p.User?.Username,
-                    CreatedAt = p.CreatedAt,
-                    OwnerPhone = p.User?.PhoneNumber,
-                    OwnerEmail = p.User?.Email,
-                    ListingType = p.ListingType,
-                    MonthlyRent = p.MonthlyRent,
-                    LeaseTermMonths = p.LeaseTermMonths,
-                    SecurityDeposit = p.SecurityDeposit,
-                    UtilitiesIncluded = p.UtilitiesIncluded,
-                    FurnishedStatus = p.FurnishedStatus,
-                    City = p.City,
-                    Neighborhood = p.Neighborhood,
-                    ZipCode = p.ZipCode,
-                    LotSize = p.LotSize,
-                    ParkingSpaces = p.ParkingSpaces,
-                    HasGarage = p.HasGarage,
-                    IsPetFriendly = p.IsPetFriendly,
-                    HasInUnitLaundry = p.HasInUnitLaundry,
-                    HasPool = p.HasPool,
-                    HasGym = p.HasGym,
-                    HasAirConditioning = p.HasAirConditioning,
-                    YearBuilt = p.YearBuilt,
-                    HasSolarPanels = p.HasSolarPanels,
-                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
-                    HasLEDLighting = p.HasLEDLighting,
-                    HasSmartThermostats = p.HasSmartThermostats,
-                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
-                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
-                    HasGreenRoof = p.HasGreenRoof,
-                    HasEnergyStarCertification = p.HasEnergyStarCertification,
-                    HasLEEDCertification = p.HasLEEDCertification,
-                    LEEDLevel = p.LEEDLevel,
-                    EcoScore = p.EcoScore
-                }).ToList();
+                var response = selectedProperties.Select(MapToSummaryDto).ToList();
 
                 return Ok(response);
             }
@@ -140,56 +411,10 @@ namespace ReState.Controllers
                 var properties = await _context.Properties
                     .Include(p => p.User)
                     .OrderByDescending(p => p.CreatedAt)
+                    .Take(100) // Safety limit: never return more than 100 properties without pagination
                     .ToListAsync();
 
-                var response = properties.Select(p => new PropertyResponseDto
-                {
-                    Id = p.Id,
-                    Title = p.Title,
-                    Description = p.Description,
-                    Address = p.Address,
-                    Price = p.Price,
-                    Bedrooms = p.Bedrooms,
-                    Bathrooms = p.Bathrooms,
-                    Area = p.Area,
-                    PropertyType = p.PropertyType,
-                    Status = p.Status,
-                    Images = p.Images,
-                    UserId = p.UserId,
-                    OwnerName = p.User?.Username,
-                    CreatedAt = p.CreatedAt,
-                    OwnerPhone = p.User?.PhoneNumber,
-                    OwnerEmail = p.User?.Email,
-                    ListingType = p.ListingType,
-                    MonthlyRent = p.MonthlyRent,
-                    LeaseTermMonths = p.LeaseTermMonths,
-                    SecurityDeposit = p.SecurityDeposit,
-                    UtilitiesIncluded = p.UtilitiesIncluded,
-                    FurnishedStatus = p.FurnishedStatus,
-                    City = p.City,
-                    Neighborhood = p.Neighborhood,
-                    ZipCode = p.ZipCode,
-                    LotSize = p.LotSize,
-                    ParkingSpaces = p.ParkingSpaces,
-                    HasGarage = p.HasGarage,
-                    IsPetFriendly = p.IsPetFriendly,
-                    HasInUnitLaundry = p.HasInUnitLaundry,
-                    HasPool = p.HasPool,
-                    HasGym = p.HasGym,
-                    HasAirConditioning = p.HasAirConditioning,
-                    YearBuilt = p.YearBuilt,
-                    HasSolarPanels = p.HasSolarPanels,
-                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
-                    HasLEDLighting = p.HasLEDLighting,
-                    HasSmartThermostats = p.HasSmartThermostats,
-                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
-                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
-                    HasGreenRoof = p.HasGreenRoof,
-                    HasEnergyStarCertification = p.HasEnergyStarCertification,
-                    HasLEEDCertification = p.HasLEEDCertification,
-                    LEEDLevel = p.LEEDLevel,
-                    EcoScore = p.EcoScore
-                }).ToList();
+                var response = properties.Select(MapToSummaryDto).ToList();
 
                 return Ok(response);
             }
@@ -223,7 +448,8 @@ namespace ReState.Controllers
                     .Take(pageSize)
                     .ToListAsync();
 
-                var response = properties.Select(p => new PropertyResponseDto
+                var response = properties.Select(MapToSummaryDto).ToList();
+                /*
                 {
                     Id = p.Id,
                     Title = p.Title,
@@ -269,8 +495,8 @@ namespace ReState.Controllers
                     HasEnergyStarCertification = p.HasEnergyStarCertification,
                     HasLEEDCertification = p.HasLEEDCertification,
                     LEEDLevel = p.LEEDLevel,
-                    EcoScore = p.EcoScore
                 }).ToList();
+                */
 
                 return Ok(new
                 {
@@ -558,54 +784,7 @@ namespace ReState.Controllers
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync();
 
-                var response = properties.Select(p => new PropertyResponseDto
-                {
-                    Id = p.Id,
-                    Title = p.Title,
-                    Description = p.Description,
-                    Address = p.Address,
-                    Price = p.Price,
-                    Bedrooms = p.Bedrooms,
-                    Bathrooms = p.Bathrooms,
-                    Area = p.Area,
-                    PropertyType = p.PropertyType,
-                    ListingType = p.ListingType,
-                    City = p.City,
-                    Neighborhood = p.Neighborhood,
-                    ZipCode = p.ZipCode,
-                    LotSize = p.LotSize,
-                    ParkingSpaces = p.ParkingSpaces,
-                    HasGarage = p.HasGarage,
-                    YearBuilt = p.YearBuilt,
-                    IsPetFriendly = p.IsPetFriendly,
-                    HasInUnitLaundry = p.HasInUnitLaundry,
-                    HasPool = p.HasPool,
-                    HasGym = p.HasGym,
-                    HasAirConditioning = p.HasAirConditioning,
-                    Status = p.Status,
-                    Images = p.Images,
-                    UserId = p.UserId,
-                    OwnerName = p.User?.Username,
-                    CreatedAt = p.CreatedAt,
-                    OwnerPhone = p.User?.PhoneNumber,
-                    OwnerEmail = p.User?.Email,
-                    MonthlyRent = p.MonthlyRent,
-                    LeaseTermMonths = p.LeaseTermMonths,
-                    SecurityDeposit = p.SecurityDeposit,
-                    UtilitiesIncluded = p.UtilitiesIncluded,
-                    FurnishedStatus = p.FurnishedStatus,
-                    HasSolarPanels = p.HasSolarPanels,
-                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
-                    HasLEDLighting = p.HasLEDLighting,
-                    HasSmartThermostats = p.HasSmartThermostats,
-                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
-                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
-                    HasGreenRoof = p.HasGreenRoof,
-                    HasEnergyStarCertification = p.HasEnergyStarCertification,
-                    HasLEEDCertification = p.HasLEEDCertification,
-                    LEEDLevel = p.LEEDLevel,
-                    EcoScore = p.EcoScore
-                }).ToList();
+                var response = properties.Select(MapToSummaryDto).ToList();
 
                 return Ok(response);
             }
@@ -818,54 +997,7 @@ namespace ReState.Controllers
                 }
 
                 // --- MAP TO RESPONSE DTO ---
-                var response = properties.Select(p => new PropertyResponseDto
-                {
-                    Id = p.Id,
-                    Title = p.Title,
-                    Description = p.Description,
-                    Address = p.Address,
-                    Price = p.Price,
-                    Bedrooms = p.Bedrooms,
-                    Bathrooms = p.Bathrooms,
-                    Area = p.Area,
-                    PropertyType = p.PropertyType,
-                    Status = p.Status,
-                    Images = p.Images,
-                    UserId = p.UserId,
-                    OwnerName = p.User?.Username,
-                    CreatedAt = p.CreatedAt,
-                    City = p.City,
-                    Neighborhood = p.Neighborhood,
-                    ZipCode = p.ZipCode,
-                    LotSize = p.LotSize,
-                    ParkingSpaces = p.ParkingSpaces,
-                    HasGarage = p.HasGarage,
-                    IsPetFriendly = p.IsPetFriendly,
-                    HasInUnitLaundry = p.HasInUnitLaundry,
-                    HasPool = p.HasPool,
-                    HasGym = p.HasGym,
-                    HasAirConditioning = p.HasAirConditioning,
-                    YearBuilt = p.YearBuilt,
-                    ListingType = p.ListingType,
-                    OwnerPhone = p.User?.PhoneNumber,
-                    OwnerEmail = p.User?.Email,
-                    MonthlyRent = p.MonthlyRent,
-                    LeaseTermMonths = p.LeaseTermMonths,
-                    SecurityDeposit = p.SecurityDeposit,
-                    UtilitiesIncluded = p.UtilitiesIncluded,
-                    FurnishedStatus = p.FurnishedStatus,
-                    // Green Features
-                    HasSolarPanels = p.HasSolarPanels,
-                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
-                    HasLEDLighting = p.HasLEDLighting,
-                    HasSmartThermostats = p.HasSmartThermostats,
-                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
-                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
-                    HasGreenRoof = p.HasGreenRoof,
-                    HasEnergyStarCertification = p.HasEnergyStarCertification,
-                    HasLEEDCertification = p.HasLEEDCertification,
-                    EcoScore = p.EcoScore
-                }).ToList();
+                var response = properties.Select(MapToSummaryDto).ToList();
 
                 Console.WriteLine($"Returning {response.Count} properties");
 
@@ -925,54 +1057,7 @@ namespace ReState.Controllers
                     .Select(x => x.Property)
                     .ToList();
 
-                var response = scoredProperties.Select(p => new PropertyResponseDto
-                {
-                    Id = p.Id,
-                    Title = p.Title,
-                    Description = p.Description,
-                    Address = p.Address,
-                    Price = p.Price,
-                    Bedrooms = p.Bedrooms,
-                    Bathrooms = p.Bathrooms,
-                    Area = p.Area,
-                    PropertyType = p.PropertyType,
-                    Status = p.Status,
-                    Images = p.Images,
-                    UserId = p.UserId,
-                    OwnerName = p.User?.Username,
-                    CreatedAt = p.CreatedAt,
-                    OwnerPhone = p.User?.PhoneNumber,
-                    OwnerEmail = p.User?.Email,
-                    ListingType = p.ListingType,
-                    MonthlyRent = p.MonthlyRent,
-                    LeaseTermMonths = p.LeaseTermMonths,
-                    SecurityDeposit = p.SecurityDeposit,
-                    UtilitiesIncluded = p.UtilitiesIncluded,
-                    FurnishedStatus = p.FurnishedStatus,
-                    City = p.City,
-                    Neighborhood = p.Neighborhood,
-                    ZipCode = p.ZipCode,
-                    LotSize = p.LotSize,
-                    ParkingSpaces = p.ParkingSpaces,
-                    HasGarage = p.HasGarage,
-                    IsPetFriendly = p.IsPetFriendly,
-                    HasInUnitLaundry = p.HasInUnitLaundry,
-                    HasPool = p.HasPool,
-                    HasGym = p.HasGym,
-                    HasAirConditioning = p.HasAirConditioning,
-                    YearBuilt = p.YearBuilt,
-                    HasSolarPanels = p.HasSolarPanels,
-                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
-                    HasLEDLighting = p.HasLEDLighting,
-                    HasSmartThermostats = p.HasSmartThermostats,
-                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
-                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
-                    HasGreenRoof = p.HasGreenRoof,
-                    HasEnergyStarCertification = p.HasEnergyStarCertification,
-                    HasLEEDCertification = p.HasLEEDCertification,
-                    LEEDLevel = p.LEEDLevel,
-                    EcoScore = p.EcoScore
-                }).ToList();
+                var response = scoredProperties.Select(MapToSummaryDto).ToList();
 
                 return Ok(response);
             }
@@ -1012,55 +1097,7 @@ namespace ReState.Controllers
                     .Take(10)
                     .ToList();
 
-                var response = scoredProperties.Select(p => new PropertyResponseDto
-                {
-                    Id = p.Id,
-                    Title = p.Title,
-                    Description = p.Description,
-                    Address = p.Address,
-                    Price = p.Price,
-                    Bedrooms = p.Bedrooms,
-                    Bathrooms = p.Bathrooms,
-                    Area = p.Area,
-                    PropertyType = p.PropertyType,
-                    Status = p.Status,
-                    Images = p.Images,
-                    UserId = p.UserId,
-                    OwnerName = p.User?.Username,
-                    CreatedAt = p.CreatedAt,
-                    OwnerPhone = p.User?.PhoneNumber,
-                    OwnerEmail = p.User?.Email,
-                    ListingType = p.ListingType,
-                    MonthlyRent = p.MonthlyRent,
-                    LeaseTermMonths = p.LeaseTermMonths,
-                    SecurityDeposit = p.SecurityDeposit,
-                    UtilitiesIncluded = p.UtilitiesIncluded,
-                    FurnishedStatus = p.FurnishedStatus,
-                    City = p.City,
-                    Neighborhood = p.Neighborhood,
-                    ZipCode = p.ZipCode,
-                    LotSize = p.LotSize,
-                    ParkingSpaces = p.ParkingSpaces,
-                    HasGarage = p.HasGarage,
-                    IsPetFriendly = p.IsPetFriendly,
-                    HasInUnitLaundry = p.HasInUnitLaundry,
-                    HasPool = p.HasPool,
-                    HasGym = p.HasGym,
-                    HasAirConditioning = p.HasAirConditioning,
-                    YearBuilt = p.YearBuilt,
-                    // Green features
-                    HasSolarPanels = p.HasSolarPanels,
-                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
-                    HasLEDLighting = p.HasLEDLighting,
-                    HasSmartThermostats = p.HasSmartThermostats,
-                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
-                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
-                    HasGreenRoof = p.HasGreenRoof,
-                    HasEnergyStarCertification = p.HasEnergyStarCertification,
-                    HasLEEDCertification = p.HasLEEDCertification,
-                    LEEDLevel = p.LEEDLevel,
-                    EcoScore = p.EcoScore
-                }).ToList();
+                var response = scoredProperties.Select(MapToSummaryDto).ToList();
 
                 return Ok(response);
             }
@@ -1327,58 +1364,6 @@ namespace ReState.Controllers
             {
                 return StatusCode(500, new { message = "Error updating property", error = ex.Message });
             }
-        }
-
-        private PropertyResponseDto MapToDto(Property property)
-        {
-            return new PropertyResponseDto
-            {
-                Id = property.Id,
-                Title = property.Title,
-                Description = property.Description,
-                Address = property.Address,
-                Price = property.Price,
-                Bedrooms = property.Bedrooms,
-                Bathrooms = property.Bathrooms,
-                Area = property.Area,
-                PropertyType = property.PropertyType,
-                Status = property.Status,
-                Images = property.Images,
-                UserId = property.UserId,
-                OwnerName = property.User?.Username,
-                OwnerPhone = property.User?.PhoneNumber,
-                OwnerEmail = property.User?.Email,
-                CreatedAt = property.CreatedAt,
-                City = property.City ?? string.Empty,
-                Neighborhood = property.Neighborhood ?? string.Empty,
-                ZipCode = property.ZipCode ?? string.Empty,
-                ListingType = property.ListingType ?? "Sale",
-                LotSize = property.LotSize,
-                ParkingSpaces = property.ParkingSpaces,
-                HasGarage = property.HasGarage,
-                YearBuilt = property.YearBuilt,
-                IsPetFriendly = property.IsPetFriendly,
-                HasInUnitLaundry = property.HasInUnitLaundry,
-                HasPool = property.HasPool,
-                HasGym = property.HasGym,
-                HasAirConditioning = property.HasAirConditioning,
-                MonthlyRent = property.MonthlyRent,
-                LeaseTermMonths = property.LeaseTermMonths,
-                SecurityDeposit = property.SecurityDeposit,
-                UtilitiesIncluded = property.UtilitiesIncluded,
-                FurnishedStatus = property.FurnishedStatus ?? "Unfurnished",
-                HasSolarPanels = property.HasSolarPanels,
-                HasEnergyEfficientAppliances = property.HasEnergyEfficientAppliances,
-                HasLEDLighting = property.HasLEDLighting,
-                HasSmartThermostats = property.HasSmartThermostats,
-                HasDoubleGlazedWindows = property.HasDoubleGlazedWindows,
-                HasRainwaterHarvesting = property.HasRainwaterHarvesting,
-                HasGreenRoof = property.HasGreenRoof,
-                HasEnergyStarCertification = property.HasEnergyStarCertification,
-                HasLEEDCertification = property.HasLEEDCertification,
-                LEEDLevel = property.LEEDLevel,
-                EcoScore = property.EcoScore
-            };
         }
 
         private bool IsAgentOrAdmin()
@@ -1717,6 +1702,66 @@ namespace ReState.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Error updating property", error = ex.Message });
+            }
+        }
+
+        // PATCH: api/Properties/{id}/status - Update property status (Admin/CityAdmin only)
+        [HttpPatch("{id}/status")]
+        [Authorize(Roles = "Admin,CityAdmin")]
+        public async Task<IActionResult> UpdatePropertyStatus(int id, [FromBody] UpdateStatusDto dto)
+        {
+            try
+            {
+                var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
+                    return Unauthorized(new { message = "User not authenticated" });
+
+                var property = await _context.Properties.FindAsync(id);
+
+                if (property == null)
+                    return NotFound(new { message = "Property not found" });
+
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+                // CityAdmin can only update properties in their city
+                if (userRole == "CityAdmin")
+                {
+                    var userCity = User.FindFirst("city")?.Value;
+                    if (string.IsNullOrEmpty(userCity) || property.City != userCity)
+                        return StatusCode(403, new { message = "You can only update properties in your city" });
+                }
+
+                // Validate status based on listing type
+                var validStatuses = property.ListingType?.ToLower() == "rent"
+                    ? new[] { "Available", "Rented" }
+                    : new[] { "Available", "Sold" };
+
+                if (!validStatuses.Contains(dto.Status))
+                    return BadRequest(new { message = $"Invalid status. Valid options are: {string.Join(", ", validStatuses)}" });
+
+                var oldStatus = property.Status;
+                property.Status = dto.Status;
+                property.UpdatedAt = DateTime.UtcNow;
+
+                _context.Properties.Update(property);
+                await _context.SaveChangesAsync();
+
+                // Notify users who liked this property about status change
+                if (oldStatus != property.Status)
+                {
+                    await _notificationService.NotifyStatusChange(id, oldStatus, property.Status);
+                }
+
+                return Ok(new
+                {
+                    message = $"Property status updated to {dto.Status}",
+                    property = new { id = property.Id, status = property.Status }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error updating property status", error = ex.Message });
             }
         }
 

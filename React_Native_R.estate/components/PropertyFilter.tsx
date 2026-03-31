@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   Switch,
   Text,
@@ -107,7 +109,7 @@ export default function FilterModal({
     if (current.includes(type)) {
       updateFilter(
         "PropertyTypes",
-        current.filter((t) => t !== type)
+        current.filter((t) => t !== type),
       );
     } else {
       updateFilter("PropertyTypes", [...current, type]);
@@ -119,7 +121,7 @@ export default function FilterModal({
     if (current.includes(status)) {
       updateFilter(
         "Status",
-        current.filter((s) => s !== status)
+        current.filter((s) => s !== status),
       );
     } else {
       updateFilter("Status", [...current, status]);
@@ -146,10 +148,9 @@ export default function FilterModal({
         }
         // For boolean values, ONLY keep if true
         return value === true;
-      })
+      }),
     );
 
-    console.log("Sending filters:", cleanedFilters); // Debug log
     onApply(cleanedFilters);
     onClose();
   };
@@ -161,25 +162,32 @@ export default function FilterModal({
       visible={visible}
       animationType="slide"
       transparent={false}
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-white">
-        {/* Header */}
-        <View className="px-6 pt-12 pb-4 border-b border-gray-200">
-          <View className="flex-row justify-between items-center">
-            <Text className="text-2xl font-rubik-bold">
-              {t("filters.filters")}
-            </Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text className="text-primary-300 text-lg">✕</Text>
-            </TouchableOpacity>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        <View className="flex-1 bg-white">
+          {/* Header */}
+          <View className="px-6 pt-12 pb-4 border-b border-gray-200">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-2xl font-rubik-bold">
+                {t("filters.filters")}
+              </Text>
+              <TouchableOpacity onPress={onClose}>
+                <Text className="text-primary-300 text-lg">✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        <ScrollView
-          className="flex-1 px-6"
-          showsVerticalScrollIndicator={false}
-        >
+          <ScrollView
+            className="flex-1 px-6"
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Listing Type Toggle */}
           <View className="mt-6">
             <Text className="text-lg font-rubik-bold text-black-300 mb-3">
@@ -272,7 +280,10 @@ export default function FilterModal({
           {/* Price/Rent Range - Conditional */}
           <View className="mt-6">
             <Text className="text-lg font-rubik-bold text-black-300 mb-3">
-              💰 {isRental ? t("filters.monthlyRentRange") : t("filters.priceRange")}
+              💰{" "}
+              {isRental
+                ? t("filters.monthlyRentRange")
+                : t("filters.priceRange")}
             </Text>
             <View className="flex-row gap-3">
               {isRental ? (
@@ -283,7 +294,7 @@ export default function FilterModal({
                     onChangeText={(text) =>
                       updateFilter(
                         "MinMonthlyRent",
-                        text ? parseFloat(text) : undefined
+                        text ? parseFloat(text) : undefined,
                       )
                     }
                     keyboardType="numeric"
@@ -295,7 +306,7 @@ export default function FilterModal({
                     onChangeText={(text) =>
                       updateFilter(
                         "MaxMonthlyRent",
-                        text ? parseFloat(text) : undefined
+                        text ? parseFloat(text) : undefined,
                       )
                     }
                     keyboardType="numeric"
@@ -310,7 +321,7 @@ export default function FilterModal({
                     onChangeText={(text) =>
                       updateFilter(
                         "MinPrice",
-                        text ? parseFloat(text) : undefined
+                        text ? parseFloat(text) : undefined,
                       )
                     }
                     keyboardType="numeric"
@@ -322,7 +333,7 @@ export default function FilterModal({
                     onChangeText={(text) =>
                       updateFilter(
                         "MaxPrice",
-                        text ? parseFloat(text) : undefined
+                        text ? parseFloat(text) : undefined,
                       )
                     }
                     keyboardType="numeric"
@@ -350,7 +361,7 @@ export default function FilterModal({
                   onChangeText={(text) =>
                     updateFilter(
                       "MinLeaseTermMonths",
-                      text ? parseInt(text) : undefined
+                      text ? parseInt(text) : undefined,
                     )
                   }
                   keyboardType="numeric"
@@ -362,7 +373,7 @@ export default function FilterModal({
                   onChangeText={(text) =>
                     updateFilter(
                       "MaxLeaseTermMonths",
-                      text ? parseInt(text) : undefined
+                      text ? parseInt(text) : undefined,
                     )
                   }
                   keyboardType="numeric"
@@ -380,7 +391,7 @@ export default function FilterModal({
                   onChangeText={(text) =>
                     updateFilter(
                       "MinSecurityDeposit",
-                      text ? parseFloat(text) : undefined
+                      text ? parseFloat(text) : undefined,
                     )
                   }
                   keyboardType="numeric"
@@ -392,7 +403,7 @@ export default function FilterModal({
                   onChangeText={(text) =>
                     updateFilter(
                       "MaxSecurityDeposit",
-                      text ? parseFloat(text) : undefined
+                      text ? parseFloat(text) : undefined,
                     )
                   }
                   keyboardType="numeric"
@@ -410,7 +421,7 @@ export default function FilterModal({
                     onPress={() =>
                       updateFilter(
                         "FurnishedStatus",
-                        filters.FurnishedStatus === option ? undefined : option
+                        filters.FurnishedStatus === option ? undefined : option,
                       )
                     }
                     className={`px-4 py-2 rounded-full ${
@@ -494,7 +505,7 @@ export default function FilterModal({
                   onChangeText={(text) =>
                     updateFilter(
                       "MinBedrooms",
-                      text ? parseInt(text) : undefined
+                      text ? parseInt(text) : undefined,
                     )
                   }
                   keyboardType="numeric"
@@ -511,7 +522,7 @@ export default function FilterModal({
                   onChangeText={(text) =>
                     updateFilter(
                       "MinBathrooms",
-                      text ? parseInt(text) : undefined
+                      text ? parseInt(text) : undefined,
                     )
                   }
                   keyboardType="numeric"
@@ -661,26 +672,27 @@ export default function FilterModal({
           </View>
         </ScrollView>
 
-        {/* Footer Buttons */}
-        <View className="px-6 py-4 border-t border-gray-200 flex-row gap-3">
-          <TouchableOpacity
-            onPress={handleReset}
-            className="flex-1 bg-gray-200 rounded-lg py-4"
-          >
-            <Text className="text-center font-rubik-bold text-black-300">
-              {t("common.reset")}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleApply}
-            className="flex-1 bg-primary-300 rounded-lg py-4"
-          >
-            <Text className="text-center font-rubik-bold text-white">
-              {t("common.apply")}
-            </Text>
-          </TouchableOpacity>
+          {/* Footer Buttons */}
+          <View className="px-6 py-4 border-t border-gray-200 flex-row gap-3">
+            <TouchableOpacity
+              onPress={handleReset}
+              className="flex-1 bg-gray-200 rounded-lg py-4"
+            >
+              <Text className="text-center font-rubik-bold text-black-300">
+                {t("common.reset")}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleApply}
+              className="flex-1 bg-primary-300 rounded-lg py-4"
+            >
+              <Text className="text-center font-rubik-bold text-white">
+                {t("common.apply")}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {/* City Picker Modal */}
       <CityPicker

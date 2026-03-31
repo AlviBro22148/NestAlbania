@@ -3,11 +3,13 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface InputModalProps {
   visible: boolean;
@@ -36,26 +38,29 @@ export default function InputModal({
   numberOfLines = 1,
   secureTextEntry = false,
 }: InputModalProps) {
+  const { colors, isDark } = useTheme();
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent={true}
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        style={styles.keyboardView}
       >
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-white rounded-t-3xl p-6 max-h-96">
+        <View style={styles.overlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             {/* Header */}
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-rubik-bold text-black-300">
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>
                 {title}
               </Text>
               <TouchableOpacity onPress={onClose}>
-                <Text className="text-gray-400 text-2xl">×</Text>
+                <Text style={[styles.closeButton, { color: colors.textMuted }]}>×</Text>
               </TouchableOpacity>
             </View>
 
@@ -69,28 +74,34 @@ export default function InputModal({
               numberOfLines={numberOfLines}
               textAlignVertical={multiline ? "top" : "center"}
               autoFocus
-              className={`bg-gray-50 border border-gray-200 rounded-xl px-4 font-rubik text-base mb-4 ${
-                multiline ? "py-3 min-h-32" : "py-3.5"
-              }`}
-              placeholderTextColor="#9CA3AF"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? colors.background : "#F9FAFB",
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+                multiline && styles.inputMultiline,
+              ]}
+              placeholderTextColor={colors.textMuted}
               secureTextEntry={secureTextEntry}
             />
 
             {/* Buttons */}
-            <View className="flex-row gap-3">
+            <View style={styles.buttonContainer}>
               <TouchableOpacity
                 onPress={onClose}
-                className="flex-1 bg-gray-200 py-4 rounded-xl"
+                style={[styles.button, { backgroundColor: isDark ? colors.border : "#E5E7EB" }]}
               >
-                <Text className="text-center font-rubik-bold text-black-300">
+                <Text style={[styles.buttonText, { color: colors.text }]}>
                   Cancel
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onSave}
-                className="flex-1 bg-primary-300 py-4 rounded-xl"
+                style={[styles.button, { backgroundColor: colors.primary }]}
               >
-                <Text className="text-center font-rubik-bold text-white">
+                <Text style={[styles.buttonText, { color: "#FFFFFF" }]}>
                   Save
                 </Text>
               </TouchableOpacity>
@@ -101,3 +112,59 @@ export default function InputModal({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: 384,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: "Rubik-Bold",
+  },
+  closeButton: {
+    fontSize: 24,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontFamily: "Rubik-Regular",
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  inputMultiline: {
+    paddingVertical: 12,
+    minHeight: 128,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  buttonText: {
+    textAlign: "center",
+    fontFamily: "Rubik-Bold",
+  },
+});

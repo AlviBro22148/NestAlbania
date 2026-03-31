@@ -1,4 +1,5 @@
 import { useAlert } from "@/contexts/AlertContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import icons from "@/constants/icons";
 import { useBackNavigation } from "@/hooks/useBackNavigation";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,7 +9,10 @@ import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Image,
+  InteractionManager,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -46,7 +50,8 @@ export default function ReportDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
-  const handleBack = useBackNavigation("/(root)/(tabs)/my-reports");
+  const { colors, isDark } = useTheme();
+  const handleBack = useBackNavigation("/(root)/my-reports");
 
   const [report, setReport] = useState<Report | undefined>();
   const [loading, setLoading] = useState(true);
@@ -101,7 +106,10 @@ export default function ReportDetailScreen() {
   }, [id]);
 
   useEffect(() => {
-    fetchReport();
+    const task = InteractionManager.runAfterInteractions(() => {
+      fetchReport();
+    });
+    return () => task.cancel();
   }, [fetchReport]);
 
   const onRefresh = async () => {
@@ -198,22 +206,23 @@ export default function ReportDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#0061FF" />
+      <SafeAreaView className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
 
   if (!report) {
     return (
-      <SafeAreaView className="flex-1 bg-white items-center justify-center p-6">
-        <Ionicons name="document-text-outline" size={64} color="#9CA3AF" />
-        <Text className="text-xl font-rubik-bold text-gray-900 mt-4">
+      <SafeAreaView className="flex-1 items-center justify-center p-6" style={{ backgroundColor: colors.background }}>
+        <Ionicons name="document-text-outline" size={64} color={colors.textMuted} />
+        <Text className="text-xl font-rubik-bold mt-4" style={{ color: colors.text }}>
           {t("reports.reportNotFound")}
         </Text>
         <TouchableOpacity
           onPress={handleBack}
-          className="mt-6 bg-primary-300 px-6 py-3 rounded-xl"
+          className="mt-6 px-6 py-3 rounded-xl"
+          style={{ backgroundColor: colors.primary }}
         >
           <Text className="text-white font-rubik-bold">{t("common.back")}</Text>
         </TouchableOpacity>
@@ -225,57 +234,58 @@ export default function ReportDetailScreen() {
   const avgPrice = report.properties.length > 0 ? totalValue / report.properties.length : 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0061FF" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         {/* Header */}
-        <View className="bg-white px-5 py-4 border-b border-gray-200">
+        <View className="px-5 py-4 border-b" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
           <View className="flex-row items-center justify-between">
             <TouchableOpacity onPress={handleBack} className="mr-3">
-              <Image source={icons.backArrow} className="w-6 h-6" />
+              <Image source={icons.backArrow} className="w-6 h-6" style={{ tintColor: colors.text }} />
             </TouchableOpacity>
             <View className="flex-1">
-              <Text className="text-2xl font-rubik-bold text-black-300" numberOfLines={1}>
+              <Text className="text-2xl font-rubik-bold" numberOfLines={1} style={{ color: colors.text }}>
                 {report.name}
               </Text>
               {report.description && (
-                <Text className="text-sm text-gray-500 font-rubik mt-1" numberOfLines={2}>
+                <Text className="text-sm font-rubik mt-1" numberOfLines={2} style={{ color: colors.textSecondary }}>
                   {report.description}
                 </Text>
               )}
             </View>
             <TouchableOpacity
               onPress={() => setEditModalVisible(true)}
-              className="bg-gray-100 p-2 rounded-full ml-2"
+              className="p-2 rounded-full ml-2"
+              style={{ backgroundColor: colors.surfaceElevated }}
             >
-              <Ionicons name="pencil" size={20} color="#6B7280" />
+              <Ionicons name="pencil" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Summary Stats */}
-        <View className="bg-white mx-4 mt-4 rounded-2xl p-4 shadow-sm border border-gray-100">
-          <Text className="text-lg font-rubik-bold text-gray-900 mb-3">
+        <View className="mx-4 mt-4 rounded-2xl p-4 shadow-sm border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+          <Text className="text-lg font-rubik-bold mb-3" style={{ color: colors.text }}>
             {t("reports.summary")}
           </Text>
           <View className="flex-row">
-            <View className="flex-1 items-center py-3 border-r border-gray-100">
-              <Text className="text-3xl font-rubik-bold text-primary-300">
+            <View className="flex-1 items-center py-3 border-r" style={{ borderColor: colors.border }}>
+              <Text className="text-3xl font-rubik-bold" style={{ color: colors.primary }}>
                 {report.properties.length}
               </Text>
-              <Text className="text-sm text-gray-500 font-rubik mt-1">
+              <Text className="text-sm font-rubik mt-1" style={{ color: colors.textSecondary }}>
                 {t("reports.properties")}
               </Text>
             </View>
-            <View className="flex-1 items-center py-3 border-r border-gray-100">
+            <View className="flex-1 items-center py-3 border-r" style={{ borderColor: colors.border }}>
               <Text className="text-xl font-rubik-bold text-green-600">
                 {formatPrice(totalValue)}
               </Text>
-              <Text className="text-sm text-gray-500 font-rubik mt-1">
+              <Text className="text-sm font-rubik mt-1" style={{ color: colors.textSecondary }}>
                 {t("reports.totalValue")}
               </Text>
             </View>
@@ -283,7 +293,7 @@ export default function ReportDetailScreen() {
               <Text className="text-xl font-rubik-bold text-blue-600">
                 {formatPrice(avgPrice)}
               </Text>
-              <Text className="text-sm text-gray-500 font-rubik mt-1">
+              <Text className="text-sm font-rubik mt-1" style={{ color: colors.textSecondary }}>
                 {t("reports.avgPrice")}
               </Text>
             </View>
@@ -293,32 +303,33 @@ export default function ReportDetailScreen() {
         {/* Properties List */}
         <View className="px-4 mt-4 pb-32">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-lg font-rubik-bold text-gray-900">
+            <Text className="text-lg font-rubik-bold" style={{ color: colors.text }}>
               {t("reports.propertiesInReport")}
             </Text>
             <TouchableOpacity
-              onPress={() => router.push("/(root)/(tabs)/explore")}
+              onPress={() => router.push("/(root)/explore")}
               className="flex-row items-center"
             >
-              <Ionicons name="add-circle-outline" size={20} color="#0061FF" />
-              <Text className="text-primary-300 font-rubik-medium ml-1">
+              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+              <Text className="font-rubik-medium ml-1" style={{ color: colors.primary }}>
                 {t("reports.addMore")}
               </Text>
             </TouchableOpacity>
           </View>
 
           {report.properties.length === 0 ? (
-            <View className="bg-white rounded-2xl p-8 items-center border border-gray-100">
-              <Ionicons name="home-outline" size={48} color="#9CA3AF" />
-              <Text className="text-lg font-rubik-bold text-gray-900 mt-4">
+            <View className="rounded-2xl p-8 items-center border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+              <Ionicons name="home-outline" size={48} color={colors.textMuted} />
+              <Text className="text-lg font-rubik-bold mt-4" style={{ color: colors.text }}>
                 {t("reports.noPropertiesYet")}
               </Text>
-              <Text className="text-sm text-gray-500 font-rubik text-center mt-2">
+              <Text className="text-sm font-rubik text-center mt-2" style={{ color: colors.textSecondary }}>
                 {t("reports.addPropertiesHint")}
               </Text>
               <TouchableOpacity
-                onPress={() => router.push("/(root)/(tabs)/explore")}
-                className="mt-4 bg-primary-300 px-6 py-3 rounded-xl"
+                onPress={() => router.push("/(root)/explore")}
+                className="mt-4 px-6 py-3 rounded-xl"
+                style={{ backgroundColor: colors.primary }}
               >
                 <Text className="text-white font-rubik-bold">
                   {t("reports.browseProperties")}
@@ -330,7 +341,8 @@ export default function ReportDetailScreen() {
               <TouchableOpacity
                 key={property.id}
                 onPress={() => router.push(`/(root)/properties/${property.propertyId}`)}
-                className="bg-white rounded-2xl mb-3 overflow-hidden shadow-sm border border-gray-100"
+                className="rounded-2xl mb-3 overflow-hidden shadow-sm border"
+                style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                 activeOpacity={0.7}
               >
                 <View className="flex-row">
@@ -343,36 +355,36 @@ export default function ReportDetailScreen() {
 
                   {/* Property Details */}
                   <View className="flex-1 p-3">
-                    <Text className="text-base font-rubik-bold text-gray-900" numberOfLines={1}>
+                    <Text className="text-base font-rubik-bold" numberOfLines={1} style={{ color: colors.text }}>
                       {property.title}
                     </Text>
-                    <Text className="text-sm text-gray-500 font-rubik mt-1" numberOfLines={1}>
+                    <Text className="text-sm font-rubik mt-1" numberOfLines={1} style={{ color: colors.textSecondary }}>
                       {property.address}
                     </Text>
-                    <Text className="text-lg font-rubik-bold text-primary-300 mt-2">
+                    <Text className="text-lg font-rubik-bold mt-2" style={{ color: colors.primary }}>
                       {formatPrice(property.price)}
                     </Text>
 
                     {/* Property Meta */}
                     <View className="flex-row items-center mt-2">
                       <View className="flex-row items-center mr-3">
-                        <Ionicons name="bed-outline" size={14} color="#6B7280" />
-                        <Text className="text-xs text-gray-500 ml-1">{property.bedrooms}</Text>
+                        <Ionicons name="bed-outline" size={14} color={colors.textMuted} />
+                        <Text className="text-xs ml-1" style={{ color: colors.textSecondary }}>{property.bedrooms}</Text>
                       </View>
                       <View className="flex-row items-center mr-3">
-                        <Ionicons name="water-outline" size={14} color="#6B7280" />
-                        <Text className="text-xs text-gray-500 ml-1">{property.bathrooms}</Text>
+                        <Ionicons name="water-outline" size={14} color={colors.textMuted} />
+                        <Text className="text-xs ml-1" style={{ color: colors.textSecondary }}>{property.bathrooms}</Text>
                       </View>
                       <View className="flex-row items-center">
-                        <Ionicons name="resize-outline" size={14} color="#6B7280" />
-                        <Text className="text-xs text-gray-500 ml-1">{property.area}m²</Text>
+                        <Ionicons name="resize-outline" size={14} color={colors.textMuted} />
+                        <Text className="text-xs ml-1" style={{ color: colors.textSecondary }}>{property.area}m²</Text>
                       </View>
                     </View>
 
                     {/* Notes Preview */}
                     {property.notes && (
-                      <View className="bg-yellow-50 rounded-lg px-2 py-1 mt-2">
-                        <Text className="text-xs text-yellow-700 font-rubik" numberOfLines={1}>
+                      <View className="rounded-lg px-2 py-1 mt-2" style={{ backgroundColor: isDark ? '#422006' : '#FEF9C3' }}>
+                        <Text className="text-xs font-rubik" numberOfLines={1} style={{ color: isDark ? '#FDE047' : '#A16207' }}>
                           {property.notes}
                         </Text>
                       </View>
@@ -381,13 +393,14 @@ export default function ReportDetailScreen() {
                 </View>
 
                 {/* Actions */}
-                <View className="flex-row border-t border-gray-100">
+                <View className="flex-row border-t" style={{ borderColor: colors.border }}>
                   <TouchableOpacity
                     onPress={() => openNotesModal(property)}
-                    className="flex-1 flex-row items-center justify-center py-3 border-r border-gray-100"
+                    className="flex-1 flex-row items-center justify-center py-3 border-r"
+                    style={{ borderColor: colors.border }}
                   >
-                    <Ionicons name="create-outline" size={18} color="#0061FF" />
-                    <Text className="text-primary-300 font-rubik-medium ml-2 text-sm">
+                    <Ionicons name="create-outline" size={18} color={colors.primary} />
+                    <Text className="font-rubik-medium ml-2 text-sm" style={{ color: colors.primary }}>
                       {property.notes ? t("reports.editNotes") : t("reports.addNotes")}
                     </Text>
                   </TouchableOpacity>
@@ -412,52 +425,59 @@ export default function ReportDetailScreen() {
         visible={editModalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl p-6">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <View className="flex-1 bg-black/50 justify-end">
+          <View className="rounded-t-3xl p-6" style={{ backgroundColor: colors.surface }}>
             <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-2xl font-rubik-bold text-gray-900">
+              <Text className="text-2xl font-rubik-bold" style={{ color: colors.text }}>
                 {t("reports.editReport")}
               </Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)} className="p-2">
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View className="mb-4">
-              <Text className="text-sm font-rubik-medium text-gray-700 mb-2">
+              <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.textSecondary }}>
                 {t("reports.reportName")} *
               </Text>
               <TextInput
                 value={editName}
                 onChangeText={setEditName}
                 placeholder={t("reports.reportNamePlaceholder")}
-                className="bg-gray-100 rounded-xl px-4 py-3 font-rubik text-base text-gray-900"
-                placeholderTextColor="#9CA3AF"
+                className="rounded-xl px-4 py-3 font-rubik text-base"
+                style={{ backgroundColor: colors.surfaceElevated, color: colors.text }}
+                placeholderTextColor={colors.textMuted}
               />
             </View>
 
             <View className="mb-6">
-              <Text className="text-sm font-rubik-medium text-gray-700 mb-2">
+              <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.textSecondary }}>
                 {t("reports.reportDescription")}
               </Text>
               <TextInput
                 value={editDescription}
                 onChangeText={setEditDescription}
                 placeholder={t("reports.reportDescriptionPlaceholder")}
-                className="bg-gray-100 rounded-xl px-4 py-3 font-rubik text-base text-gray-900"
-                placeholderTextColor="#9CA3AF"
+                className="rounded-xl px-4 py-3 font-rubik text-base"
+                style={{ backgroundColor: colors.surfaceElevated, color: colors.text, textAlignVertical: "top", minHeight: 80 }}
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
-                style={{ textAlignVertical: "top", minHeight: 80 }}
               />
             </View>
 
             <TouchableOpacity
               onPress={handleSaveEdit}
               disabled={saving}
-              className={`py-4 rounded-xl ${saving ? "bg-gray-300" : "bg-primary-300"}`}
+              className="py-4 rounded-xl"
+              style={{ backgroundColor: saving ? colors.textMuted : colors.primary }}
             >
               {saving ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -468,7 +488,8 @@ export default function ReportDetailScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Notes Modal */}
@@ -476,30 +497,35 @@ export default function ReportDetailScreen() {
         visible={notesModalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setNotesModalVisible(false)}
       >
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl p-6">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <View className="flex-1 bg-black/50 justify-end">
+          <View className="rounded-t-3xl p-6" style={{ backgroundColor: colors.surface }}>
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-2xl font-rubik-bold text-gray-900">
+              <Text className="text-2xl font-rubik-bold" style={{ color: colors.text }}>
                 {t("reports.propertyNotes")}
               </Text>
               <TouchableOpacity onPress={() => setNotesModalVisible(false)} className="p-2">
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             {selectedProperty && (
-              <View className="bg-gray-50 rounded-xl p-3 mb-4 flex-row items-center">
+              <View className="rounded-xl p-3 mb-4 flex-row items-center" style={{ backgroundColor: colors.surfaceElevated }}>
                 <Image
                   source={{ uri: selectedProperty.image }}
                   className="w-16 h-16 rounded-lg"
                 />
                 <View className="ml-3 flex-1">
-                  <Text className="text-base font-rubik-bold text-gray-900" numberOfLines={1}>
+                  <Text className="text-base font-rubik-bold" numberOfLines={1} style={{ color: colors.text }}>
                     {selectedProperty.title}
                   </Text>
-                  <Text className="text-sm text-primary-300 font-rubik-bold mt-1">
+                  <Text className="text-sm font-rubik-bold mt-1" style={{ color: colors.primary }}>
                     {formatPrice(selectedProperty.price)}
                   </Text>
                 </View>
@@ -507,25 +533,26 @@ export default function ReportDetailScreen() {
             )}
 
             <View className="mb-6">
-              <Text className="text-sm font-rubik-medium text-gray-700 mb-2">
+              <Text className="text-sm font-rubik-medium mb-2" style={{ color: colors.textSecondary }}>
                 {t("reports.yourNotes")}
               </Text>
               <TextInput
                 value={propertyNotes}
                 onChangeText={setPropertyNotes}
                 placeholder={t("reports.notesPlaceholder")}
-                className="bg-gray-100 rounded-xl px-4 py-3 font-rubik text-base text-gray-900"
-                placeholderTextColor="#9CA3AF"
+                className="rounded-xl px-4 py-3 font-rubik text-base"
+                style={{ backgroundColor: colors.surfaceElevated, color: colors.text, textAlignVertical: "top", minHeight: 120 }}
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={5}
-                style={{ textAlignVertical: "top", minHeight: 120 }}
               />
             </View>
 
             <TouchableOpacity
               onPress={handleSaveNotes}
               disabled={savingNotes}
-              className={`py-4 rounded-xl ${savingNotes ? "bg-gray-300" : "bg-primary-300"}`}
+              className="py-4 rounded-xl"
+              style={{ backgroundColor: savingNotes ? colors.textMuted : colors.primary }}
             >
               {savingNotes ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -536,8 +563,10 @@ export default function ReportDetailScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
+

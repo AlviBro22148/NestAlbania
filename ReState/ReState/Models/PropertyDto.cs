@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace ReState.Models
 {
@@ -154,6 +154,27 @@ namespace ReState.Models
         public int EcoScore { get; set; }
     }
 
+    // Lightweight DTO for list views to reduce JSON payload and parsing overhead
+    public class PropertySummaryResponseDto
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int Bedrooms { get; set; }
+        public int Bathrooms { get; set; }
+        public decimal Area { get; set; }
+        public string PropertyType { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public List<string> Images { get; set; } = new();
+        public string? OwnerName { get; set; }
+        public string ListingType { get; set; } = string.Empty;
+        public decimal? MonthlyRent { get; set; }
+        public string City { get; set; } = string.Empty;
+        public int EcoScore { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
     // DTO for filtering properties (PropertyFilterDto)
     // Cleaned up for correct range filtering and nullable defaults.
     public class PropertyFilterDto
@@ -235,5 +256,12 @@ namespace ReState.Models
         // Boolean/String Filters (Changed to nullable to prevent unintended defaults)
         public bool? UtilitiesIncluded { get; set; }
         public string? FurnishedStatus { get; set; }
+    }
+
+    // DTO for updating property status
+    public class UpdateStatusDto
+    {
+        [Required]
+        public string Status { get; set; } = string.Empty;
     }
 }

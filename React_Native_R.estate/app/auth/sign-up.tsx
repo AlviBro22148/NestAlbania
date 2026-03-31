@@ -4,6 +4,7 @@ import PreferencesModal from "@/components/PreferencesModal";
 import images from "@/constants/images";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlert } from "@/contexts/AlertContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { router } from "expo-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,6 +12,7 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -21,6 +23,7 @@ export default function SignUp() {
   const { register } = useAuth();
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
+  const { colors, isDark } = useTheme();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -145,7 +148,7 @@ export default function SignUp() {
   };
 
   return (
-    <SafeAreaView className="bg-white h-full">
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -153,16 +156,15 @@ export default function SignUp() {
         <Image
           resizeMode="contain"
           source={images.onboarding}
-          style={{ height: 250 }}
-          className="w-full mt-6"
+          style={styles.headerImage}
         />
 
-        <View className="px-10 mt-6">
+        <View style={styles.formContainer}>
           {/* Title Text */}
-          <Text className="text-2xl mt-4 text-center font-rubik-bold mb-2">
+          <Text style={[styles.title, { color: colors.text }]}>
             {t("auth.createAccount")}
           </Text>
-          <Text className="text-center text-gray-600 font-rubik-regular mb-6">
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {t("auth.joinNestAlbania")}
           </Text>
 
@@ -178,14 +180,14 @@ export default function SignUp() {
               )
             }
             disabled={loading}
-            className="mb-4"
+            style={styles.inputGroup}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
               {t("auth.username")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
+            <View style={[styles.inputField, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Text
-                className={`font-rubik-regular ${username ? "text-black" : "text-gray-400"}`}
+                style={[styles.inputText, { color: username ? colors.text : colors.textMuted }]}
               >
                 {username || t("placeholders.enterUsername")}
               </Text>
@@ -205,14 +207,14 @@ export default function SignUp() {
               )
             }
             disabled={loading}
-            className="mb-4"
+            style={styles.inputGroup}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
               {t("auth.email")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
+            <View style={[styles.inputField, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Text
-                className={`font-rubik-regular ${email ? "text-black" : "text-gray-400"}`}
+                style={[styles.inputText, { color: email ? colors.text : colors.textMuted }]}
               >
                 {email || t("placeholders.enterEmail")}
               </Text>
@@ -232,14 +234,14 @@ export default function SignUp() {
               )
             }
             disabled={loading}
-            className="mb-4"
+            style={styles.inputGroup}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
               {t("auth.phoneNumber")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
+            <View style={[styles.inputField, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Text
-                className={`font-rubik-regular ${phoneNumber ? "text-black" : "text-gray-400"}`}
+                style={[styles.inputText, { color: phoneNumber ? colors.text : colors.textMuted }]}
               >
                 {phoneNumber || t("placeholders.enterPhone")}
               </Text>
@@ -250,14 +252,14 @@ export default function SignUp() {
           <TouchableOpacity
             onPress={() => setCityPickerVisible(true)}
             disabled={loading}
-            className="mb-4"
+            style={styles.inputGroup}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
               {t("cities.city")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
+            <View style={[styles.inputField, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Text
-                className={`font-rubik-regular ${city ? "text-black" : "text-gray-400"}`}
+                style={[styles.inputText, { color: city ? colors.text : colors.textMuted }]}
               >
                 {city || t("cities.selectCity")}
               </Text>
@@ -278,14 +280,14 @@ export default function SignUp() {
               )
             }
             disabled={loading}
-            className="mb-4"
+            style={styles.inputGroup}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
               {t("auth.password")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
+            <View style={[styles.inputField, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Text
-                className={`font-rubik-regular ${password ? "text-black" : "text-gray-400"}`}
+                style={[styles.inputText, { color: password ? colors.text : colors.textMuted }]}
               >
                 {password ? "••••••••" : t("placeholders.enterPassword")}
               </Text>
@@ -306,14 +308,14 @@ export default function SignUp() {
               )
             }
             disabled={loading}
-            className="mb-6"
+            style={styles.inputGroupLast}
           >
-            <Text className="text-sm font-rubik-medium mb-2">
+            <Text style={[styles.inputLabel, { color: colors.text }]}>
               {t("auth.confirmPassword")}
             </Text>
-            <View className="border border-gray-300 rounded-lg px-4 py-3">
+            <View style={[styles.inputField, { borderColor: colors.border, backgroundColor: colors.surface }]}>
               <Text
-                className={`font-rubik-regular ${confirmPassword ? "text-black" : "text-gray-400"}`}
+                style={[styles.inputText, { color: confirmPassword ? colors.text : colors.textMuted }]}
               >
                 {confirmPassword
                   ? "••••••••"
@@ -325,28 +327,28 @@ export default function SignUp() {
           {/* Submit Button */}
           <TouchableOpacity
             onPress={handleRegister}
-            className="bg-blue-500 rounded-full py-4 px-6 items-center"
+            style={[styles.submitButton, { backgroundColor: colors.primary }]}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text className="text-white font-rubik-bold text-lg">
+              <Text style={styles.submitButtonText}>
                 {t("auth.register")}
               </Text>
             )}
           </TouchableOpacity>
 
           {/* Toggle to Sign In */}
-          <View className="mt-6 flex-row justify-center mb-8">
-            <Text className="text-gray-600 font-rubik-regular">
+          <View style={styles.toggleContainer}>
+            <Text style={[styles.toggleText, { color: colors.textSecondary }]}>
               {t("auth.alreadyHaveAccount")}
             </Text>
             <TouchableOpacity
               onPress={() => router.push("/auth/sign-in")}
               disabled={loading}
             >
-              <Text className="text-blue-500 font-rubik-bold ml-1">
+              <Text style={[styles.toggleLink, { color: colors.primary }]}>
                 {t("auth.signIn")}
               </Text>
             </TouchableOpacity>
@@ -388,3 +390,74 @@ export default function SignUp() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  headerImage: {
+    width: "100%",
+    height: 250,
+    marginTop: 24,
+  },
+  formContainer: {
+    paddingHorizontal: 40,
+    marginTop: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontFamily: "Rubik-Bold",
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  subtitle: {
+    textAlign: "center",
+    fontFamily: "Rubik-Regular",
+    marginBottom: 24,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputGroupLast: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontFamily: "Rubik-Medium",
+    marginBottom: 8,
+  },
+  inputField: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  inputText: {
+    fontFamily: "Rubik-Regular",
+  },
+  submitButton: {
+    borderRadius: 9999,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
+  submitButtonText: {
+    color: "#ffffff",
+    fontFamily: "Rubik-Bold",
+    fontSize: 18,
+  },
+  toggleContainer: {
+    marginTop: 24,
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 32,
+  },
+  toggleText: {
+    fontFamily: "Rubik-Regular",
+  },
+  toggleLink: {
+    fontFamily: "Rubik-Bold",
+    marginLeft: 4,
+  },
+});

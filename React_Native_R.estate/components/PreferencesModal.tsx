@@ -2,8 +2,11 @@ import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -11,6 +14,7 @@ import {
 } from "react-native";
 import api from "@/lib/axios-config";
 import { ALBANIAN_CITIES } from "@/components/CityPicker";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface PreferencesModalProps {
   visible: boolean;
@@ -63,6 +67,7 @@ export default function PreferencesModal({
   onSkip,
 }: PreferencesModalProps) {
   const { t } = useTranslation();
+  const { colors, isDark } = useTheme();
   const [saving, setSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -170,13 +175,18 @@ export default function PreferencesModal({
   };
 
   const renderStepIndicator = () => (
-    <View className="flex-row justify-center mb-4">
+    <View style={styles.stepIndicator}>
       {Array.from({ length: TOTAL_STEPS }).map((_, step) => (
         <View
           key={step}
-          className={`h-1.5 rounded-full mx-0.5 ${
-            step === currentStep ? "bg-primary-300 w-6" : step < currentStep ? "bg-primary-200 w-3" : "bg-gray-200 w-3"
-          }`}
+          style={[
+            styles.stepDot,
+            step === currentStep
+              ? { backgroundColor: colors.primary, width: 24 }
+              : step < currentStep
+                ? { backgroundColor: colors.primary, opacity: 0.5, width: 12 }
+                : { backgroundColor: isDark ? colors.border : "#E5E7EB", width: 12 },
+          ]}
         />
       ))}
     </View>
@@ -610,21 +620,26 @@ export default function PreferencesModal({
       visible={visible}
       animationType="slide"
       transparent={true}
+      statusBarTranslucent={true}
       onRequestClose={onSkip}
     >
-      <View className="flex-1 justify-end bg-black/50">
-        <View className="bg-white rounded-t-3xl" style={{ maxHeight: "90%" }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        style={styles.keyboardView}
+      >
+        <View style={styles.overlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
           {/* Header */}
-          <View className="px-6 pt-6 pb-2">
-            <View className="flex-row justify-between items-center mb-4">
-              <View className="flex-row items-center">
-                <Text className="text-2xl mr-2">🎯</Text>
-                <Text className="text-lg font-rubik-bold text-black-300">
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <View style={styles.headerTitle}>
+                <Text style={styles.headerEmoji}>🎯</Text>
+                <Text style={[styles.headerText, { color: colors.text }]}>
                   Personalize Your Feed
                 </Text>
               </View>
               <TouchableOpacity onPress={onSkip}>
-                <Text className="text-gray-400 font-rubik-medium">Skip</Text>
+                <Text style={[styles.skipText, { color: colors.textMuted }]}>Skip</Text>
               </TouchableOpacity>
             </View>
             {renderStepIndicator()}
@@ -632,23 +647,23 @@ export default function PreferencesModal({
 
           {/* Content */}
           <ScrollView
-            className="px-6"
+            style={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={styles.scrollContentContainer}
             keyboardShouldPersistTaps="handled"
           >
             {renderStep()}
           </ScrollView>
 
           {/* Footer Buttons */}
-          <View className="px-6 pb-8 pt-4 border-t border-gray-100">
-            <View className="flex-row">
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+            <View style={styles.footerButtons}>
               {currentStep > 0 && (
                 <TouchableOpacity
                   onPress={prevStep}
-                  className="flex-1 mr-2 py-4 rounded-2xl bg-gray-100"
+                  style={[styles.backButton, { backgroundColor: isDark ? colors.border : "#F3F4F6" }]}
                 >
-                  <Text className="text-center font-rubik-bold text-gray-600">
+                  <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>
                     Back
                   </Text>
                 </TouchableOpacity>
@@ -656,20 +671,115 @@ export default function PreferencesModal({
               <TouchableOpacity
                 onPress={nextStep}
                 disabled={saving}
-                className={`flex-1 ${currentStep > 0 ? "ml-2" : ""} py-4 rounded-2xl bg-primary-300`}
+                style={[
+                  styles.nextButton,
+                  { backgroundColor: colors.primary },
+                  currentStep > 0 && styles.nextButtonWithBack,
+                ]}
               >
                 {saving ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="text-center font-rubik-bold text-white">
+                  <Text style={styles.nextButtonText}>
                     {currentStep === TOTAL_STEPS - 1 ? "Finish" : "Next"}
                   </Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "90%",
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  headerTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerEmoji: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  headerText: {
+    fontSize: 18,
+    fontFamily: "Rubik-Bold",
+  },
+  skipText: {
+    fontFamily: "Rubik-Medium",
+  },
+  stepIndicator: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  stepDot: {
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 2,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+  },
+  scrollContentContainer: {
+    paddingBottom: 20,
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  footerButtons: {
+    flexDirection: "row",
+  },
+  backButton: {
+    flex: 1,
+    marginRight: 8,
+    paddingVertical: 16,
+    borderRadius: 16,
+  },
+  backButtonText: {
+    textAlign: "center",
+    fontFamily: "Rubik-Bold",
+  },
+  nextButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 16,
+  },
+  nextButtonWithBack: {
+    marginLeft: 8,
+  },
+  nextButtonText: {
+    textAlign: "center",
+    fontFamily: "Rubik-Bold",
+    color: "#FFFFFF",
+  },
+});

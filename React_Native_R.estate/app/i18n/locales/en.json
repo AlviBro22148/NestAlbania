@@ -21,6 +21,13 @@
       "title": "Notification Settings",
       "infoTitle": "Stay Updated",
       "infoDesc": "Get notified about price drops, status changes, and new properties that match your preferences",
+      "pushNotifications": "Push Notifications",
+      "enablePush": "Enable Push Notifications",
+      "enablePushDesc": "Receive instant notifications on your device",
+      "deviceRegistered": "Device registered for notifications",
+      "pushEnabled": "Push notifications enabled successfully",
+      "pushPermissionDenied": "Notification permission denied. Please enable in settings.",
+      "pushError": "Failed to enable push notifications",
       "alertTypes": "Alert Types",
       "priceChanges": "Price Changes",
       "priceChangesDesc": "Get notified when liked properties change price",
@@ -42,9 +49,16 @@
       "tip2": "Enable new property alerts to find your dream home first",
       "tip3": "Set preferences to only get relevant notifications"
     },
+
+    "home":{
+      "goodAfternoon": "Good Afternoon",
+      "goodEvening": "Good Evening",
+      "goodMorning": "Good Morning"
+    },
   
   "common": {
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
@@ -72,7 +86,10 @@
     "all": "All",
     "ChooseLanguage": "Choose Language",
     "likedProperty" : "Property",
-    "send": "Send"
+    "send": "Send",
+    "enable": "Enable",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
 
   "tabs": {
@@ -86,6 +103,13 @@
   "languages": {
     "english": "English",
     "albanian": "Albanian"
+  },
+
+  "theme": {
+    "selectTheme": "Select Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
 
   "cities": {
@@ -188,6 +212,7 @@
      "myReports": "My Reports",
      "myChats": "My Chats",
      "testimonials": "Testimonials",
+     "appearance": "Appearance",
      "becomeAgent": "Become an Agent",
     "becomeAgentDesc": "List and manage properties",
     "becomeAgentConfirm": "Submit request to become a real estate agent? An administrator will review your application.",
@@ -227,7 +252,8 @@
     "profileUpdated": "Profile updated successfully!",
     "passwordChanged": "Password changed successfully!",
     "accountDeleted": "Your account has been deleted successfully",
-    "Community": "Community"
+    "Community": "Community",
+    "settings" : "Settings"
   },
   
   "properties": {
@@ -973,6 +999,47 @@
       "resolvedMessage": "Thank you! Your feedback has been reviewed and resolved. We truly appreciate you taking the time to help us improve NestAlbania!"
     },
 
+    "services": {
+      "title": "Nearby Services",
+      "subtitle": "Discover services near you",
+      "yourLocation": "Your current location",
+      "gettingLocation": "Getting your location...",
+      "findingPlaces": "Finding nearby places...",
+      "searchPlaceholder": "Search services, locations...",
+      "searchRadius": "Search Radius",
+      "foundPlaces": "Found {{count}} places nearby",
+      "noServices": "No Services Found",
+      "noServicesMessage": "Try increasing the search radius or adjusting filters",
+      "tryAgain": "Try Again",
+      "addressNotAvailable": "Address not available",
+      "hours": "Hours",
+      "call": "Call",
+      "directions": "Directions",
+      "website": "Website",
+      "noPhone": "No Phone Number",
+      "noPhoneMessage": "Phone number is not available for this place",
+      "noWebsite": "No Website",
+      "noWebsiteMessage": "Website is not available for this place",
+      "locationRequired": "Location Access Required",
+      "locationRequiredMessage": "We need access to your location to find nearby services. Please enable location permissions.",
+      "enableLocation": "Enable Location",
+      "openSettings": "Open Settings",
+      "locationDenied": "Location Denied",
+      "locationDeniedMessage": "Location access was denied. Enable it in settings to use this feature.",
+      "locationError": "Location Error",
+      "locationErrorMessage": "Failed to get your location. Please try again.",
+      "fetchError": "Loading Error",
+      "fetchErrorMessage": "Failed to load nearby services. Please try again.",
+      "categories": {
+        "all": "All",
+        "schools": "Schools",
+        "hospitals": "Hospitals",
+        "transit": "Transit",
+        "shopping": "Shopping",
+        "food": "Food"
+      }
+    },
+
     "preferences": {
       "yourChoice": "Your Choice",
       "yourPreferences": "Your Preferences",
@@ -1041,6 +1108,36 @@
       "clearPreferences": "Clear Preferences",
       "noPreferencesTitle": "No Preferences Set",
       "noPreferencesMessage": "Set your property preferences to get personalized recommendations and see properties that match your criteria."
+    },
+
+    "onboarding": {
+      "welcome": {
+        "title": "Welcome to NestAlbania",
+        "description": "Your trusted partner in finding the perfect property in Albania. Discover apartments, houses, villas, and more.",
+        "tip": "Set your preferences to get personalized property recommendations"
+      },
+      "search": {
+        "title": "Browse & Search",
+        "description": "Explore thousands of properties with powerful filters. Search by location, price, property type, and amenities.",
+        "tip": "Use filters to narrow down properties that match your exact needs"
+      },
+      "save": {
+        "title": "Save & Compare",
+        "description": "Like properties to save them for later. Compare multiple properties side by side to make the best decision.",
+        "tip": "Tap the heart icon on any property to add it to your favorites"
+      },
+      "connect": {
+        "title": "Connect with Owners",
+        "description": "Chat directly with property owners and agents. Get answers to your questions and schedule viewings.",
+        "tip": "Start a conversation to learn more about properties you're interested in"
+      },
+      "getStarted": {
+        "title": "Get Started",
+        "description": "Create an account to unlock all features. Save favorites, chat with owners, and find your dream home."
+      },
+      "skip": "Skip",
+      "next": "Next",
+      "getStartedButton": "Get Started"
     }
 
     }

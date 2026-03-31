@@ -8,6 +8,12 @@ module.exports = function (api) {
     plugins.push(['transform-remove-console', { exclude: ['error', 'warn'] }]);
   }
 
+  // ❌ REMOVE THIS LINE
+  // plugins.push('react-native-worklets/plugin');
+
+  // ✅ Reanimated plugin MUST be last
+  plugins.push('react-native-reanimated/plugin');
+
   return {
     presets: [
       ['babel-preset-expo', { jsxImportSource: 'nativewind' }],

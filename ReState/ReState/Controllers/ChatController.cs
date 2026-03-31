@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ReState.Data;
 using ReState.Entities;
 using ReState.Models;
+using ReState.Services;
 using System.Security.Claims;
 
 namespace ReState.Controllers
@@ -15,11 +16,16 @@ namespace ReState.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<ChatController> _logger;
+        private readonly IPushNotificationService _pushNotificationService;
 
-        public ChatController(ApplicationDbContext context, ILogger<ChatController> logger)
+        public ChatController(
+            ApplicationDbContext context,
+            ILogger<ChatController> logger,
+            IPushNotificationService pushNotificationService)
         {
             _context = context;
             _logger = logger;
+            _pushNotificationService = pushNotificationService;
         }
 
         // GET: api/chat/conversations
@@ -57,11 +63,17 @@ namespace ReState.Controllers
                     .OrderByDescending(c => c.UpdatedAt)
                     .ToListAsync();
 
+                // PERFORMANCE FIX: Batch query all unread counts in ONE query instead of N+1
+                var conversationIds = conversations.Select(c => c.Id).ToList();
+                var unreadCounts = await _context.ChatMessages
+                    .Where(m => conversationIds.Contains(m.ConversationId) && !m.IsRead && m.SenderId != userId)
+                    .GroupBy(m => m.ConversationId)
+                    .Select(g => new { ConversationId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.ConversationId, x => x.Count);
+
                 var response = conversations.Select(c =>
                 {
                     var lastMessage = c.Messages.FirstOrDefault();
-                    var unreadCount = _context.ChatMessages
-                        .Count(m => m.ConversationId == c.Id && !m.IsRead && m.SenderId != userId);
 
                     return new ConversationResponseDto
                     {
@@ -78,7 +90,7 @@ namespace ReState.Controllers
                         AgentProfilePicture = c.Agent?.ProfilePictureUrl,
                         LastMessage = lastMessage?.Content,
                         LastMessageAt = lastMessage?.CreatedAt,
-                        UnreadCount = unreadCount,
+                        UnreadCount = unreadCounts.GetValueOrDefault(c.Id, 0),
                         CreatedAt = c.CreatedAt,
                         UpdatedAt = c.UpdatedAt
                     };
@@ -137,6 +149,22 @@ namespace ReState.Controllers
                     existingConversation.UpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
 
+                    // Send push notification to agent
+                    var senderUser = await _context.Userss.FindAsync(userId);
+                    try
+                    {
+                        await _pushNotificationService.SendChatNotificationAsync(
+                            agentId,
+                            senderUser?.Username ?? "Someone",
+                            newMessage.Content,
+                            existingConversation.Id
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Failed to send chat push notification: {ex.Message}");
+                    }
+
                     // Reload with includes
                     existingConversation = await _context.ChatConversations
                         .Include(c => c.Property)
@@ -194,6 +222,21 @@ namespace ReState.Controllers
                 // Get user and agent details
                 var user = await _context.Userss.FindAsync(userId);
                 var agent = await _context.Userss.FindAsync(agentId);
+
+                // Send push notification to agent for new conversation
+                try
+                {
+                    await _pushNotificationService.SendChatNotificationAsync(
+                        agentId,
+                        user?.Username ?? "Someone",
+                        message.Content,
+                        conversation.Id
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Failed to send chat push notification: {ex.Message}");
+                }
 
                 return Ok(new ConversationResponseDto
                 {
@@ -300,6 +343,22 @@ namespace ReState.Controllers
                 await _context.SaveChangesAsync();
 
                 var sender = await _context.Userss.FindAsync(userId);
+
+                // Send push notification to the other participant
+                var recipientId = conversation.UserId == userId ? conversation.AgentId : conversation.UserId;
+                try
+                {
+                    await _pushNotificationService.SendChatNotificationAsync(
+                        recipientId,
+                        sender?.Username ?? "Someone",
+                        message.Content,
+                        id
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Failed to send chat push notification: {ex.Message}");
+                }
 
                 return Ok(new MessageResponseDto
                 {

@@ -33,6 +33,7 @@ namespace ReState.Data
         public DbSet<ChatConversation> ChatConversations { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<UserPreference> UserPreferences { get; set; }
+        public DbSet<PushToken> PushTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

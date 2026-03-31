@@ -23,11 +23,16 @@ namespace ReState.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<NotificationService> _logger;
+        private readonly IPushNotificationService _pushNotificationService;
 
-        public NotificationService(ApplicationDbContext context, ILogger<NotificationService> logger)
+        public NotificationService(
+            ApplicationDbContext context,
+            ILogger<NotificationService> logger,
+            IPushNotificationService pushNotificationService)
         {
             _context = context;
             _logger = logger;
+            _pushNotificationService = pushNotificationService;
         }
 
         public async Task NotifyPriceChange(int propertyId, decimal oldPrice, decimal newPrice)
@@ -61,16 +66,27 @@ namespace ReState.Services
 
                     if (prefs?.PriceChangeAlerts != false) // Send if enabled or no preference set
                     {
+                        var title = newPrice < oldPrice ? "Price Drop Alert!" : "Price Change Alert";
+                        var message = $"{property.Title} - Price changed from ${oldPrice:N0} to ${newPrice:N0}";
+
                         var notification = new Notification
                         {
                             UserId = userId,
                             PropertyId = propertyId,
                             Type = "PriceChange",
-                            Title = newPrice < oldPrice ? "Price Drop Alert! 📉" : "Price Change Alert 💰",
-                            Message = $"{property.Title} - Price changed from ${oldPrice:N0} to ${newPrice:N0}",
+                            Title = title,
+                            Message = message,
                             CreatedAt = DateTime.UtcNow
                         };
                         _context.Notifications.Add(notification);
+
+                        // Send push notification
+                        await _pushNotificationService.SendPushNotificationAsync(
+                            userId,
+                            title,
+                            message,
+                            new { type = "PriceChange", propertyId = propertyId }
+                        );
                     }
                 }
 
@@ -103,17 +119,27 @@ namespace ReState.Services
 
                     if (prefs?.StatusChangeAlerts != false)
                     {
-                        var emoji = newStatus == "Sold" ? "🔴" : newStatus == "Pending" ? "🟡" : "🟢";
+                        var title = "Status Update";
+                        var message = $"{property.Title} - Status changed from {oldStatus} to {newStatus}";
+
                         var notification = new Notification
                         {
                             UserId = userId,
                             PropertyId = propertyId,
                             Type = "StatusChange",
-                            Title = $"Status Update {emoji}",
-                            Message = $"{property.Title} - Status changed from {oldStatus} to {newStatus}",
+                            Title = title,
+                            Message = message,
                             CreatedAt = DateTime.UtcNow
                         };
                         _context.Notifications.Add(notification);
+
+                        // Send push notification
+                        await _pushNotificationService.SendPushNotificationAsync(
+                            userId,
+                            title,
+                            message,
+                            new { type = "StatusChange", propertyId = propertyId, newStatus = newStatus }
+                        );
                     }
                 }
 
@@ -143,16 +169,27 @@ namespace ReState.Services
 
                 foreach (var userId in matchingUsers)
                 {
+                    var title = "New Property Match!";
+                    var message = $"{property.Title} - ${property.Price:N0} in {property.City}";
+
                     var notification = new Notification
                     {
                         UserId = userId,
                         PropertyId = property.Id,
                         Type = "NewProperty",
-                        Title = "New Property Match! 🏠",
-                        Message = $"{property.Title} - ${property.Price:N0} in {property.City}",
+                        Title = title,
+                        Message = message,
                         CreatedAt = DateTime.UtcNow
                     };
                     _context.Notifications.Add(notification);
+
+                    // Send push notification
+                    await _pushNotificationService.SendPushNotificationAsync(
+                        userId,
+                        title,
+                        message,
+                        new { type = "NewProperty", propertyId = property.Id }
+                    );
                 }
 
                 await _context.SaveChangesAsync();
@@ -210,23 +247,39 @@ namespace ReState.Services
         {
             try
             {
+                _logger.LogInformation($"[NotifyAgentRequestApproved] Starting for user {userId} ({username})");
+
+                var title = "Agent Request Approved!";
+                var message = $"Congratulations {username}! Your request to become an agent has been approved. You can now list properties on the platform.";
+
                 var notification = new Notification
                 {
                     UserId = userId,
                     PropertyId = null,
                     Type = "AgentRequestApproved",
-                    Title = "Agent Request Approved!",
-                    Message = $"Congratulations {username}! Your request to become an agent has been approved. You can now list properties on the platform.",
+                    Title = title,
+                    Message = message,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _context.Notifications.Add(notification);
                 await _context.SaveChangesAsync();
-                _logger.LogInformation($"Agent approval notification sent to user {userId}");
+                _logger.LogInformation($"[NotifyAgentRequestApproved] In-app notification saved for user {userId}");
+
+                // Send push notification
+                _logger.LogInformation($"[NotifyAgentRequestApproved] Sending push notification to user {userId}");
+                await _pushNotificationService.SendPushNotificationAsync(
+                    userId,
+                    title,
+                    message,
+                    new { type = "AgentRequestApproved" }
+                );
+
+                _logger.LogInformation($"[NotifyAgentRequestApproved] Completed for user {userId}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error sending agent approval notification: {ex.Message}");
+                _logger.LogError($"[NotifyAgentRequestApproved] Error: {ex.Message}\nStackTrace: {ex.StackTrace}");
             }
         }
 
@@ -234,18 +287,30 @@ namespace ReState.Services
         {
             try
             {
+                var title = "Agent Request Update";
+                var message = $"Hi {username}, your request to become an agent was not approved. Reason: {reason}";
+
                 var notification = new Notification
                 {
                     UserId = userId,
                     PropertyId = null,
                     Type = "AgentRequestRejected",
-                    Title = "Agent Request Update",
-                    Message = $"Hi {username}, your request to become an agent was not approved. Reason: {reason}",
+                    Title = title,
+                    Message = message,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _context.Notifications.Add(notification);
                 await _context.SaveChangesAsync();
+
+                // Send push notification
+                await _pushNotificationService.SendPushNotificationAsync(
+                    userId,
+                    title,
+                    message,
+                    new { type = "AgentRequestRejected" }
+                );
+
                 _logger.LogInformation($"Agent rejection notification sent to user {userId}");
             }
             catch (Exception ex)
@@ -258,18 +323,30 @@ namespace ReState.Services
         {
             try
             {
+                var title = "Feedback Resolved";
+                var message = $"Thank you {username}! Your feedback \"{feedbackSubject}\" has been reviewed and resolved.";
+
                 var notification = new Notification
                 {
                     UserId = userId,
                     PropertyId = null,
                     Type = "FeedbackResolved",
-                    Title = "Feedback Resolved ✅",
-                    Message = $"Thank you {username}! Your feedback \"{feedbackSubject}\" has been reviewed and resolved. We truly appreciate you taking the time to help us improve NestAlbania!",
+                    Title = title,
+                    Message = message,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _context.Notifications.Add(notification);
                 await _context.SaveChangesAsync();
+
+                // Send push notification
+                await _pushNotificationService.SendPushNotificationAsync(
+                    userId,
+                    title,
+                    message,
+                    new { type = "FeedbackResolved" }
+                );
+
                 _logger.LogInformation($"Feedback resolved notification sent to user {userId}");
             }
             catch (Exception ex)
@@ -282,6 +359,9 @@ namespace ReState.Services
         {
             try
             {
+                var title = "New Agent Request";
+                var message = $"{username} ({email}) has submitted a request to become an agent. Please review their application.";
+
                 // Get all admin users
                 var adminUsers = await _context.Userss
                     .Where(u => u.Role == "Admin")
@@ -295,11 +375,19 @@ namespace ReState.Services
                         UserId = adminId,
                         PropertyId = null,
                         Type = "NewAgentRequest",
-                        Title = "New Agent Request 👤",
-                        Message = $"{username} ({email}) has submitted a request to become an agent. Please review their application.",
+                        Title = title,
+                        Message = message,
                         CreatedAt = DateTime.UtcNow
                     };
                     _context.Notifications.Add(notification);
+
+                    // Send push notification to admin
+                    await _pushNotificationService.SendPushNotificationAsync(
+                        adminId,
+                        title,
+                        message,
+                        new { type = "NewAgentRequest" }
+                    );
                 }
 
                 await _context.SaveChangesAsync();
@@ -315,6 +403,9 @@ namespace ReState.Services
         {
             try
             {
+                var title = $"New {feedbackType}";
+                var message = $"{username} submitted feedback: \"{subject}\"";
+
                 // Get all admin users
                 var adminUsers = await _context.Userss
                     .Where(u => u.Role == "Admin")
@@ -328,11 +419,19 @@ namespace ReState.Services
                         UserId = adminId,
                         PropertyId = null,
                         Type = "NewFeedback",
-                        Title = $"New {feedbackType} 📝",
-                        Message = $"{username} submitted feedback: \"{subject}\"",
+                        Title = title,
+                        Message = message,
                         CreatedAt = DateTime.UtcNow
                     };
                     _context.Notifications.Add(notification);
+
+                    // Send push notification to admin
+                    await _pushNotificationService.SendPushNotificationAsync(
+                        adminId,
+                        title,
+                        message,
+                        new { type = "NewFeedback" }
+                    );
                 }
 
                 await _context.SaveChangesAsync();

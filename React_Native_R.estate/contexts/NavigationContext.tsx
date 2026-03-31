@@ -15,25 +15,33 @@ const IGNORED_ROUTES = ["/auth/sign-in", "/auth/sign-up", "/auth/forgot-password
 // Main tab routes - don't go back from these, exit app instead
 const MAIN_TAB_ROUTES = [
   "/(root)/(tabs)",
-  "/(root)/(tabs)/index",
-  "/(root)/(tabs)/explore",
-  "/(root)/(tabs)/market",
-  "/(root)/(tabs)/services",
-  "/(root)/(tabs)/profile",
+  "/(root)/index",
+  "/(root)/explore",
+  "/(root)/market",
+  "/(root)/services",
+  "/(root)/profile",
 ];
 
 // Default fallback route
-const DEFAULT_FALLBACK = "/(root)/(tabs)/";
+const DEFAULT_FALLBACK = "/(root)/";
 
 export function NavigationProvider({ children }: { children: React.ReactNode }) {
   // Use ref to store history to avoid re-renders
   const historyRef = useRef<string[]>([]);
   const currentPathRef = useRef<string>("");
+  const isInternalNavigatingRef = useRef<boolean>(false);
   const pathname = usePathname();
 
   // Track navigation changes
   useEffect(() => {
     if (!pathname) return;
+
+    // If we're navigating back internally, don't add to history
+    if (isInternalNavigatingRef.current) {
+      isInternalNavigatingRef.current = false;
+      currentPathRef.current = pathname;
+      return;
+    }
 
     // Don't add duplicate consecutive entries
     if (pathname === currentPathRef.current) return;
@@ -66,12 +74,16 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       // Remove it from history
       historyRef.current = history.slice(0, -1);
 
+      // Set internal navigation flag to ignore this change in the tracker
+      isInternalNavigatingRef.current = true;
+
       // Navigate to the previous route
       router.replace(previousRoute as any);
       return true;
     } else {
       // No history, use fallback if provided
       if (fallback) {
+        isInternalNavigatingRef.current = true;
         router.replace(fallback as any);
         return true;
       }
@@ -99,6 +111,7 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
 
       if (!didGoBack) {
         // No history and not on main tab, go to home
+        isInternalNavigatingRef.current = true;
         router.replace(DEFAULT_FALLBACK as any);
       }
 
@@ -127,3 +140,4 @@ export function useNavContext() {
 }
 
 export default NavigationContext;
+

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Trash2, Plus, Building2, MapPin, DollarSign, Filter, Download, MoreHorizontal, Edit } from 'lucide-react';
+import { Eye, Trash2, Plus, Building2, MapPin, DollarSign, Filter, Download, MoreHorizontal, Edit, ChevronDown } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 import { Button } from '../components/ui/Button';
@@ -12,6 +12,121 @@ import { ConfirmDialog } from '../components/ui/Modal';
 import { Skeleton, SkeletonTableRow } from '../components/ui/Skeleton';
 import { ActionsDropdown } from '../components/ui/Dropdown';
 import { Select } from '../components/ui/Select';
+
+// Status Dropdown Component for inline editing
+const StatusDropdown = ({ property, token, onStatusChange, t }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const toast = useToast();
+
+  const isRental = property.listingType?.toLowerCase() === 'rent';
+
+  // Get options based on listing type
+  const statusOptions = isRental
+    ? [
+        { value: 'Available', label: t('properties.statusOnRent', 'For Rent'), color: 'success' },
+        { value: 'Rented', label: t('properties.statusRented', 'Rented'), color: 'info' },
+      ]
+    : [
+        { value: 'Available', label: t('properties.statusOnSale', 'For Sale'), color: 'success' },
+        { value: 'Sold', label: t('properties.statusSold', 'Sold'), color: 'error' },
+      ];
+
+  const currentOption = statusOptions.find(opt => opt.value === property.status) || statusOptions[0];
+
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === property.status) {
+      setIsOpen(false);
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await api.updatePropertyStatus(token, property.id, newStatus);
+      toast.success(t('properties.statusUpdated', 'Status updated successfully'));
+      onStatusChange(property.id, newStatus);
+    } catch (error) {
+      toast.error(error.message || t('properties.statusUpdateError', 'Failed to update status'));
+    } finally {
+      setIsUpdating(false);
+      setIsOpen(false);
+    }
+  };
+
+  const getStatusColor = (color) => {
+    switch (color) {
+      case 'success': return 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400';
+      case 'error': return 'bg-error-100 text-error-700 dark:bg-error-900/30 dark:text-error-400';
+      case 'info': return 'bg-info-100 text-info-700 dark:bg-info-900/30 dark:text-info-400';
+      case 'warning': return 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400';
+      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        disabled={isUpdating}
+        className={`
+          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+          transition-all duration-200 cursor-pointer
+          ${getStatusColor(currentOption.color)}
+          hover:ring-2 hover:ring-offset-1 hover:ring-primary-300
+          disabled:opacity-50 disabled:cursor-not-allowed
+        `}
+      >
+        {isUpdating ? (
+          <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <>
+            <span className="w-2 h-2 rounded-full bg-current opacity-70" />
+            {currentOption.label}
+            <ChevronDown className="w-3 h-3 opacity-60" />
+          </>
+        )}
+      </button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute z-20 mt-1 left-0 min-w-[140px] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-lg overflow-hidden">
+            {statusOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStatusChange(option.value);
+                }}
+                className={`
+                  w-full px-3 py-2 text-left text-sm flex items-center gap-2
+                  hover:bg-[var(--bg-hover)] transition-colors
+                  ${option.value === property.status ? 'bg-[var(--bg-tertiary)]' : ''}
+                `}
+              >
+                <span className={`w-2 h-2 rounded-full ${
+                  option.color === 'success' ? 'bg-success-500' :
+                  option.color === 'error' ? 'bg-error-500' :
+                  option.color === 'info' ? 'bg-info-500' : 'bg-gray-500'
+                }`} />
+                <span className="text-[var(--text-primary)]">{option.label}</span>
+                {option.value === property.status && (
+                  <span className="ml-auto text-primary-500">✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export const PropertiesPage = ({ token, onViewProperty, onCreateProperty }) => {
   const { t } = useTranslation();
@@ -54,6 +169,15 @@ export const PropertiesPage = ({ token, onViewProperty, onCreateProperty }) => {
     } catch {
       toast.error(t('properties.deleteError', 'Failed to delete property. Please try again.'));
     }
+  };
+
+  // Handle status change from dropdown - update local state
+  const handleStatusChange = (propertyId, newStatus) => {
+    setProperties(prev =>
+      prev.map(p =>
+        p.id === propertyId ? { ...p, status: newStatus } : p
+      )
+    );
   };
 
   const filteredProperties = (properties || []).filter(p => {
@@ -456,10 +580,13 @@ export const PropertiesPage = ({ token, onViewProperty, onCreateProperty }) => {
                           <span className="text-[var(--text-muted)] text-sm">/mo</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={property.status}>
-                          {getStatusLabel(property.status, property.listingType)}
-                        </StatusBadge>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <StatusDropdown
+                          property={property}
+                          token={token}
+                          onStatusChange={handleStatusChange}
+                          t={t}
+                        />
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">

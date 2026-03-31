@@ -2,186 +2,99 @@ import ComparisonFloatingButton from "@/components/ComparisonFloatingButton";
 import PropertyCard from "@/components/PropertyCard";
 import FilterModal, { PropertyFilters } from "@/components/PropertyFilter";
 import icons from "@/constants/icons";
-import api from "@/lib/axios-config";
-import { useFocusEffect } from "@react-navigation/native";
+import { useComparison } from "@/contexts/ComparisonContext";
+import { useLikedPropertiesActions } from "@/contexts/LikedPropertiesContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useExploreProperties } from "@/hooks/useProperties";
+import { FlashList } from "@shopify/flash-list";
 import { router } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { Image as ExpoImage } from "expo-image";
 import {
   ActivityIndicator,
-  FlatList,
-  Image,
   RefreshControl,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   View,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface Property {
   id: number;
   title: string;
-  description: string;
   address: string;
   price: number;
   bedrooms: number;
   bathrooms: number;
   area: number;
   propertyType: string;
-  status: string;
   images: string[];
-  userId: string;
-  ownerName: string;
-  createdAt: string;
-  listingType: "Sale" | "Rent" | string;
+  listingType: string;
   monthlyRent: number | null;
 }
 
-interface PaginatedResponse {
-  properties: Property[];
-  currentPage: number;
-  pageSize: number;
-  totalPages: number;
-  totalProperties: number;
-  hasNextPage: boolean;
-}
-
 export default function ExploreScreen() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(true);
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const { isLiked, toggleLike } = useLikedPropertiesActions();
+  const { isInComparison, addToComparison, removeFromComparison } = useComparison();
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<PropertyFilters>({});
-  const [hasActiveFilters, setHasActiveFilters] = useState(false);
-  const { t } = useTranslation();
-  const pageSize = 10;
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Fetch properties with filters
-  const fetchProperties = async (page: number, isRefresh = false) => {
-    if (page === 1) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useExploreProperties(activeFilters);
 
-    try {
-      const hasFilters = Object.keys(activeFilters).length > 0;
+  // Debounce search - 400ms for less frequent updates
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 400);
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
+  }, [searchQuery]);
 
-      let response;
+  // Flatten pages into single array
+  const properties = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => page.properties);
+  }, [data]);
 
-      if (hasFilters) {
-        response = await api.post<PaginatedResponse>("/api/properties/filter", {
-          ...activeFilters,
-          page: page,
-          pageSize: pageSize,
-        });
-      } else {
-        response = await api.get<PaginatedResponse>(
-          `/api/properties/paginated?page=${page}&pageSize=${pageSize}`
-        );
-      }
-
-      const { properties: newProperties, hasNextPage: hasNext } = response.data;
-
-      if (isRefresh || page === 1) {
-        setProperties(newProperties);
-        setFilteredProperties(newProperties);
-      } else {
-        setProperties((prev) => [...prev, ...newProperties]);
-        setFilteredProperties((prev) => [...prev, ...newProperties]);
-      }
-
-      setHasNextPage(hasNext);
-      setCurrentPage(page);
-    } catch (error) {
-      console.error("Error fetching properties:", error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-      setRefreshing(false);
-    }
-  };
-
-  // Initial load
-  useFocusEffect(
-    useCallback(() => {
-      fetchProperties(1, true);
-    }, [activeFilters])
-  );
-
-  // Search filter
-  React.useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredProperties(properties);
-    } else {
-      const filtered = properties.filter(
-        (property) =>
-          property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          property.propertyType
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())
-      );
-      setFilteredProperties(filtered);
-    }
-  }, [searchQuery, properties]);
-
-  // Pull to refresh
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setCurrentPage(1);
-    fetchProperties(1, true);
-  }, [activeFilters]);
-
-  // Load more properties
-  const loadMore = () => {
-    if (!loadingMore && hasNextPage) {
-      fetchProperties(currentPage + 1);
-    }
-  };
-
-  // Handle filter apply
-  const handleApplyFilters = (filters: PropertyFilters) => {
-    setActiveFilters(filters);
-    setHasActiveFilters(Object.keys(filters).length > 0);
-    setCurrentPage(1);
-  };
-
-  // Clear all filters
-  const handleClearFilters = () => {
-    setActiveFilters({});
-    setHasActiveFilters(false);
-    setCurrentPage(1);
-  };
-
-  // Render loading footer
-  const renderFooter = () => {
-    if (!loadingMore) return null;
-
-    return (
-      <View className="py-4">
-        <ActivityIndicator size="large" color="#0061ff" />
-      </View>
+  // Filter by search query
+  const filteredProperties = useMemo(() => {
+    if (!debouncedQuery.trim()) return properties;
+    const q = debouncedQuery.toLowerCase();
+    return properties.filter(
+      (p) => p.title.toLowerCase().includes(q) || p.address.toLowerCase().includes(q)
     );
+  }, [debouncedQuery, properties]);
+
+  const hasActiveFilters = Object.keys(activeFilters).length > 0;
+
+  // Simplified handlers - no useCallback wrapper for simple operations
+  const handlePropertyPress = (id: number) => router.push(`/(root)/properties/${id}`);
+  const handleToggleLike = (id: number) => toggleLike(id);
+  const handleToggleComparison = (id: number) => {
+    isInComparison(id) ? removeFromComparison(id) : addToComparison(id);
   };
 
-  // Handle property card press
-  const handlePropertyPress = useCallback((propertyId: number) => {
-    router.push(`/(root)/properties/${propertyId}`);
-  }, []);
+  const loadMore = useCallback(() => {
+    if (!isFetchingNextPage && hasNextPage) fetchNextPage();
+  }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  // Memoized key extractor
-  const keyExtractor = useCallback((item: Property) => item.id.toString(), []);
-
-  // Memoized render item
-  const renderPropertyCard = useCallback(({ item }: { item: Property }) => (
-    <View className="px-6">
+  const renderItem = useCallback(({ item }: { item: Property }) => (
+    <View style={styles.cardWrapper}>
       <PropertyCard
         id={item.id}
         title={item.title}
@@ -195,142 +108,141 @@ export default function ExploreScreen() {
         listingType={item.listingType}
         monthlyRent={item.monthlyRent ?? undefined}
         onPress={() => handlePropertyPress(item.id)}
+        isLiked={isLiked(item.id)}
+        isInComparison={isInComparison(item.id)}
+        onToggleLike={() => handleToggleLike(item.id)}
+        onToggleComparison={() => handleToggleComparison(item.id)}
+        propertyTypeLabel={t(`propertyTypes.${item.propertyType.toLowerCase()}`)}
       />
     </View>
-  ), [handlePropertyPress]);
+  ), [isLiked, isInComparison, t]);
 
-  // Render empty state
-  const renderEmpty = () => {
-    if (loading) return null;
-
+  const ListEmpty = useMemo(() => {
+    if (isLoading) return null;
     return (
-      <View className="flex-1 items-center justify-center py-20">
-        <Text className="text-6xl mb-4">🏠</Text>
-        <Text className="text-xl font-rubik-bold text-gray-700 mb-2">
+      <View style={styles.empty}>
+        <Text style={styles.emptyIcon}>🏠</Text>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
           {t("properties.noPropertiesFound")}
         </Text>
-        <Text className="text-gray-500 text-center px-8">
-          {searchQuery || hasActiveFilters
-            ? t("properties.tryDifferentSearch")
-            : t("properties.beFirstToAdd")}
+        <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+          {searchQuery || hasActiveFilters ? t("properties.tryDifferentSearch") : t("properties.beFirstToAdd")}
         </Text>
-        {hasActiveFilters && (
-          <TouchableOpacity
-            onPress={handleClearFilters}
-            className="mt-4 bg-primary-300 px-6 py-3 rounded-lg"
-          >
-            <Text className="text-white font-rubik-bold">
-              {t("common.clearAll")}
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
     );
-  };
+  }, [isLoading, searchQuery, hasActiveFilters, t, colors]);
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
       {/* Header */}
-      <View className="px-6 pt-4 pb-2">
-        <Text className="text-3xl font-rubik-bold text-black-300 mb-5 mt-3">
-          {t("properties.explore")}
-        </Text>
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <View style={[styles.accent, { backgroundColor: colors.accent }]} />
+          <Text style={[styles.title, { color: colors.text }]}>{t("properties.explore")}</Text>
+        </View>
 
-        {/* Search Bar */}
-        <View className="bg-gray-100 rounded-xl flex-row items-center px-4 py-1 mb-2">
-          <Image source={icons.search} className="size-6 mr-1 mb-1" />
+        {/* Search */}
+        <View style={[styles.searchBox, { backgroundColor: colors.surfaceElevated }]}>
+          <ExpoImage source={icons.search} style={[styles.searchIcon, { tintColor: colors.icon }]} />
           <TextInput
             placeholder={t("placeholders.searchProperties")}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            className="flex-1 font-rubik text-base mt-1"
-            placeholderTextColor="#9ca3af"
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholderTextColor={colors.textMuted}
           />
-          <TouchableOpacity onPress={() => setFilterModalVisible(true)}>
-            <View className="relative">
-              <Image source={icons.filter} className="size-6 mr-2 mb-1" />
-              {hasActiveFilters && (
-                <View className="absolute -top-1 -right-1 bg-primary-300 rounded-full w-3 h-3" />
-              )}
-            </View>
-          </TouchableOpacity>
+          <Pressable onPress={() => setFilterModalVisible(true)} style={[styles.filterBtn, { backgroundColor: colors.background }]}>
+            <ExpoImage source={icons.filter} style={[styles.filterIcon, { tintColor: colors.icon }]} />
+            {hasActiveFilters && <View style={[styles.filterDot, { backgroundColor: colors.accent }]} />}
+          </Pressable>
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Text className="text-gray-400 text-lg ml-2">✕</Text>
-            </TouchableOpacity>
+            <Pressable onPress={() => setSearchQuery("")} style={styles.clearBtn}>
+              <Text style={{ color: colors.textMuted, fontSize: 16 }}>✕</Text>
+            </Pressable>
           )}
         </View>
 
-        {/* Active Filters Indicator */}
-        {hasActiveFilters && (
-          <View className="flex-row items-center mt-2">
-            <Text className="text-sm font-rubik text-primary-300">
-              {t("filters.filtersActive")}
-            </Text>
-            <TouchableOpacity
-              onPress={handleClearFilters}
-              className="ml-2 px-3 py-1 bg-primary-100 rounded-full"
-            >
-              <Text className="text-xs font-rubik-bold text-primary-300">
-                {t("common.clearAll")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Results Count */}
-        <Text className="text-sm font-rubik text-gray-500 mt-2">
-          {filteredProperties.length} {t("properties.propertiesFound")}
-        </Text>
+        {/* Results count */}
+        <View style={styles.resultsRow}>
+          <Text style={[styles.resultsText, { color: colors.textSecondary }]}>
+            {filteredProperties.length} {t("properties.propertiesFound")}
+          </Text>
+          {hasActiveFilters && (
+            <Pressable onPress={() => setActiveFilters({})} style={[styles.clearFilters, { backgroundColor: colors.accentLight }]}>
+              <Text style={[styles.clearFiltersText, { color: colors.accent }]}>{t("common.clearAll")}</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
-      {/* Properties List */}
-      {loading && currentPage === 1 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#0061ff" />
-          <Text className="text-gray-500 mt-4">{t("common.loading")}</Text>
+      {/* List */}
+      {isLoading && properties.length === 0 ? (
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredProperties}
-          keyExtractor={keyExtractor}
-          renderItem={renderPropertyCard}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          keyExtractor={(item) => `p-${item.id}`}
+          renderItem={renderItem}
+          estimatedItemSize={280}
+          contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          drawDistance={200}
+          overrideItemLayout={(layout) => { layout.size = 280; }}
+          removeClippedSubviews
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#0061ff"
-              colors={["#0061ff"]}
+              refreshing={isFetching && !isFetchingNextPage}
+              onRefresh={refetch}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
           onEndReached={loadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          ListEmptyComponent={renderEmpty}
-          initialNumToRender={5}
-          maxToRenderPerBatch={5}
-          windowSize={7}
-          removeClippedSubviews={true}
-          getItemLayout={(_, index) => ({
-            length: 280,
-            offset: 280 * index,
-            index,
-          })}
+          onEndReachedThreshold={0.2}
+          ListFooterComponent={isFetchingNextPage ? (
+            <View style={styles.footer}><ActivityIndicator color={colors.primary} /></View>
+          ) : null}
+          ListEmptyComponent={ListEmpty}
         />
       )}
 
-      {/* Filter Modal */}
       <FilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        onApply={handleApplyFilters}
+        onApply={setActiveFilters}
         initialFilters={activeFilters}
       />
 
-      {/* Comparison Floating Button */}
       <ComparisonFloatingButton />
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  titleRow: { flexDirection: "row", alignItems: "center", marginBottom: 16, marginTop: 8 },
+  accent: { width: 4, height: 26, borderRadius: 2, marginRight: 10 },
+  title: { fontSize: 26, fontFamily: "Rubik-Bold" },
+  searchBox: { flexDirection: "row", alignItems: "center", height: 48, borderRadius: 12, paddingLeft: 14, paddingRight: 6, marginBottom: 12 },
+  searchIcon: { width: 20, height: 20, marginRight: 10 },
+  searchInput: { flex: 1, fontFamily: "Rubik-Regular", fontSize: 15, height: "100%" },
+  filterBtn: { width: 36, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center", marginLeft: 6 },
+  filterIcon: { width: 18, height: 18 },
+  filterDot: { position: "absolute", top: 5, right: 5, width: 8, height: 8, borderRadius: 4 },
+  clearBtn: { padding: 6, marginLeft: 2 },
+  resultsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  resultsText: { fontSize: 13, fontFamily: "Rubik-Regular" },
+  clearFilters: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 16 },
+  clearFiltersText: { fontSize: 11, fontFamily: "Rubik-SemiBold" },
+  cardWrapper: { paddingHorizontal: 20 },
+  list: { paddingBottom: 100 },
+  loading: { flex: 1, justifyContent: "center", alignItems: "center" },
+  footer: { paddingVertical: 16, alignItems: "center" },
+  empty: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 40 },
+  emptyIcon: { fontSize: 40, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontFamily: "Rubik-Bold", marginBottom: 6 },
+  emptyText: { textAlign: "center", fontSize: 13, fontFamily: "Rubik-Regular" },
+});
