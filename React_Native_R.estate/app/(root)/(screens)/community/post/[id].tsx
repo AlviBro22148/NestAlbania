@@ -147,6 +147,8 @@ const PostDetailScreen = () => {
       setShowCommentModal(false);
       // Refetch post to get new comment
       refetch();
+      // Also invalidate community posts list to update comment counts
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
       showToast("Comment added!", "success");
     } catch (error: any) {
       console.error("Error adding comment:", error);
@@ -154,7 +156,7 @@ const PostDetailScreen = () => {
     } finally {
       setSubmittingComment(false);
     }
-  }, [commentText, postId, refetch, showAlert, showToast, t]);
+  }, [commentText, postId, refetch, queryClient, showAlert, showToast, t]);
 
   const handleDeleteComment = useCallback(
     (commentId: number) => {
@@ -172,6 +174,8 @@ const PostDetailScreen = () => {
                 await api.delete(`/api/community/comments/${commentId}`);
                 showToast(t("validation.commentDeleted"), "success");
                 refetch();
+                // Also invalidate community posts list to update comment counts
+                queryClient.invalidateQueries({ queryKey: ["community-posts"] });
               } catch (error: any) {
                 console.error("Error deleting comment:", error);
                 showToast(t("validation.failedToDeleteComment"), "error");
@@ -181,7 +185,7 @@ const PostDetailScreen = () => {
         ],
       });
     },
-    [refetch, showAlert, showToast, t],
+    [refetch, queryClient, showAlert, showToast, t],
   );
 
   const canDeleteComment = (comment: Comment) => {

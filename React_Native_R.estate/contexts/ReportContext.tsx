@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios-config';
 import { useAuth } from './AuthContext';
 
@@ -58,8 +59,14 @@ const ReportContext = createContext<ReportContextType | undefined>(undefined);
 
 export const ReportProvider = ({ children }: { children: ReactNode }) => {
   const { user, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Invalidate React Query reports cache
+  const invalidateReportsCache = () => {
+    queryClient.invalidateQueries({ queryKey: ['reports'] });
+  };
 
   // Fetch reports from API
   const fetchReports = async () => {
@@ -135,6 +142,7 @@ export const ReportProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setReports(prev => [...prev, newReport]);
+      invalidateReportsCache(); // Sync React Query cache
       return newReport;
     } catch (error) {
       console.error('Error creating report:', error);
@@ -154,6 +162,7 @@ export const ReportProvider = ({ children }: { children: ReactNode }) => {
             : report
         )
       );
+      invalidateReportsCache(); // Sync React Query cache
     } catch (error) {
       console.error('Error updating report:', error);
       throw error;
@@ -165,6 +174,7 @@ export const ReportProvider = ({ children }: { children: ReactNode }) => {
     try {
       await api.delete(`/api/reports/${reportId}`);
       setReports(prev => prev.filter(report => report.id !== reportId));
+      invalidateReportsCache(); // Sync React Query cache
     } catch (error) {
       console.error('Error deleting report:', error);
       throw error;
@@ -220,6 +230,7 @@ export const ReportProvider = ({ children }: { children: ReactNode }) => {
           };
         })
       );
+      invalidateReportsCache(); // Sync React Query cache
     } catch (error: any) {
       console.error('Error adding property to report:', error);
       throw error;
@@ -241,6 +252,7 @@ export const ReportProvider = ({ children }: { children: ReactNode }) => {
           };
         })
       );
+      invalidateReportsCache(); // Sync React Query cache
     } catch (error) {
       console.error('Error removing property from report:', error);
       throw error;
@@ -264,6 +276,7 @@ export const ReportProvider = ({ children }: { children: ReactNode }) => {
           };
         })
       );
+      invalidateReportsCache(); // Sync React Query cache
     } catch (error) {
       console.error('Error updating property notes:', error);
       throw error;

@@ -7,6 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios-config";
 import {
   ActivityIndicator,
@@ -52,6 +53,7 @@ export default function MyReportsScreen() {
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
   const { colors, isDark } = useTheme();
+  const queryClient = useQueryClient();
   const handleBack = useBackNavigation("/(root)/profile");
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +129,7 @@ export default function MyReportsScreen() {
       setNewReportName("");
       setNewReportDescription("");
       showToast(t("reports.reportCreated"), "success");
+      queryClient.invalidateQueries({ queryKey: ['reports'] }); // Sync with React Query
       await fetchReports();
     } catch (error) {
       console.error("Error creating report:", error);
@@ -150,6 +153,7 @@ export default function MyReportsScreen() {
             try {
               await api.delete(`/api/reports/${report.id}`);
               showToast(t("reports.reportDeleted"), "success");
+              queryClient.invalidateQueries({ queryKey: ['reports'] }); // Sync with React Query
               await fetchReports();
             } catch (error) {
               showToast(t("reports.errorDeleting"), "error");

@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   Image,
@@ -26,6 +27,7 @@ const CreatePostScreen = () => {
   const { t } = useTranslation();
   const { showAlert, showToast } = useAlert();
   const { colors, isDark } = useTheme();
+  const queryClient = useQueryClient();
   const handleBack = useBackNavigation("/(root)/community");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -90,6 +92,9 @@ const CreatePostScreen = () => {
         content: content.trim(),
         category,
       });
+
+      // Invalidate community posts cache so new post shows immediately
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
 
       showToast("Post created successfully!", "success");
       handleBack();

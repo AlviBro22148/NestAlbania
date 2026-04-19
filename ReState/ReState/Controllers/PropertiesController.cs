@@ -19,27 +19,76 @@ namespace ReState.Controllers
         private readonly ICloudinaryService _cloudinaryService;
         private readonly ApplicationDbContext _context;
         private readonly INotificationService _notificationService;
+        private readonly ICacheService _cacheService;
 
         public PropertiesController(
             IPropertyService propertyService,
             ICloudinaryService cloudinaryService,
             ApplicationDbContext context,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ICacheService cacheService)
         {
             _propertyService = propertyService;
             _cloudinaryService = cloudinaryService;
             _context = context;
             _notificationService = notificationService;
+            _cacheService = cacheService;
+        }
+
+        // GET: api/properties/cities - Get all unique cities from properties
+        // OPTIMIZED: Redis caching with 5-minute TTL
+        [HttpGet("cities")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCities()
+        {
+            try
+            {
+                const string cacheKey = "properties:cities";
+
+                // Try to get from cache first (5 minute cache)
+                var cachedCities = await _cacheService.GetAsync<List<string>>(cacheKey);
+                if (cachedCities != null)
+                {
+                    return Ok(cachedCities);
+                }
+
+                // Cache miss - fetch from database
+                var cities = await _context.Properties
+                    .Where(p => !string.IsNullOrEmpty(p.City))
+                    .Select(p => p.City)
+                    .Distinct()
+                    .OrderBy(c => c)
+                    .ToListAsync();
+
+                // Cache for 5 minutes
+                await _cacheService.SetAsync(cacheKey, cities, TimeSpan.FromMinutes(5));
+
+                return Ok(cities);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching cities", error = ex.Message });
+            }
         }
 
         // GET: api/properties/home - Combined endpoint for home screen (reduces API calls from 4 to 1)
+        // OPTIMIZED: Redis caching with 60-second TTL
         [HttpGet("home")]
         [AllowAnonymous]
         public async Task<IActionResult> GetHomeData()
         {
             try
             {
-                // Run queries sequentially to identify which one fails
+                const string cacheKey = "properties:home";
+
+                // Try to get from cache first
+                var cachedData = await _cacheService.GetAsync<object>(cacheKey);
+                if (cachedData != null)
+                {
+                    return Ok(cachedData);
+                }
+
+                // Cache miss - fetch from database
                 List<PropertySummaryResponseDto> featured;
                 List<PropertySummaryResponseDto> todaysChoice;
                 List<PropertySummaryResponseDto> greenHomes;
@@ -86,14 +135,19 @@ namespace ReState.Controllers
                     }
                 }
 
-                return Ok(new
+                var result = new
                 {
                     featured = featured,
                     todaysChoice = todaysChoice,
                     greenHomes = greenHomes,
                     yourChoice = yourChoiceResult?.Properties ?? new List<PropertySummaryResponseDto>(),
                     yourChoicePagination = yourChoiceResult?.Pagination
-                });
+                };
+
+                // Cache for 60 seconds
+                await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromSeconds(60));
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -102,17 +156,34 @@ namespace ReState.Controllers
         }
 
         // Helper method for featured properties
-        // PERFORMANCE FIX: Single query + in-memory shuffle instead of N queries in a loop
+        // PERFORMANCE FIX: Direct projection eliminates N+1 queries (single JOIN instead of N queries)
         private async Task<List<PropertySummaryResponseDto>> GetFeaturedPropertiesData()
         {
-            // Fetch a limited pool of recent properties, then shuffle in memory
-            // This is much faster than the original N queries in a loop
+            // Use projection to avoid N+1 problem - generates single SQL query with JOIN
             var candidatePool = await _context.Properties
-                .Include(p => p.User)
                 .Where(p => p.Status == "Available")
                 .OrderByDescending(p => p.CreatedAt)
-                .Take(20) // Get 20 candidates, pick 5 randomly
+                .Select(p => new PropertySummaryResponseDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Address = p.Address,
+                    Price = p.Price,
+                    Bedrooms = p.Bedrooms,
+                    Bathrooms = p.Bathrooms,
+                    Area = p.Area,
+                    PropertyType = p.PropertyType,
+                    Status = p.Status,
+                    Images = p.Images,
+                    OwnerName = p.User.Username,  // Single JOIN - no N+1!
+                    ListingType = p.ListingType,
+                    MonthlyRent = p.MonthlyRent,
+                    City = p.City,
+                    EcoScore = 0, // EcoScore is calculated property, not in DB
+                    CreatedAt = p.CreatedAt
+                })
                 .AsNoTracking()
+                .Take(20) // Get 20 candidates, pick 5 randomly
                 .ToListAsync();
 
             if (candidatePool.Count == 0)
@@ -120,52 +191,106 @@ namespace ReState.Controllers
 
             // Shuffle in memory and take 5
             var random = new Random();
-            var properties = candidatePool
+            return candidatePool
                 .OrderBy(x => random.Next())
                 .Take(5)
                 .ToList();
-
-            return properties.Select(MapToSummaryDto).ToList();
         }
 
         // Helper method for today's choice
-        // PERFORMANCE FIX: Fetch only recent/quality properties instead of ALL, then score in memory
+        // PERFORMANCE FIX: Projection eliminates N+1, scoring done in-memory
         private async Task<List<PropertySummaryResponseDto>> GetTodaysChoiceData()
         {
             var today = DateTime.UtcNow.Date;
             var seed = today.Year * 10000 + today.Month * 100 + today.Day;
             var random = new Random(seed);
 
-            // Fetch only the most recent 50 properties with good criteria (has images, recent)
-            // This limits memory usage while still providing variety for scoring
-            // Note: ImageUrls is the actual DB column, Images is a computed property
+            // Use projection to avoid N+1 - single query with JOIN
             var candidateProperties = await _context.Properties
-                .Include(p => p.User)
                 .Where(p => p.Status == "Available")
-                .Where(p => !string.IsNullOrEmpty(p.ImageUrls)) // Only properties with images
-                .OrderByDescending(p => p.CreatedAt) // Prefer newer properties
-                .Take(50) // Limit candidates for in-memory scoring
+                .Where(p => !string.IsNullOrEmpty(p.ImageUrls))
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new
+                {
+                    Property = new PropertySummaryResponseDto
+                    {
+                        Id = p.Id,
+                        Title = p.Title,
+                        Address = p.Address,
+                        Price = p.Price,
+                        Bedrooms = p.Bedrooms,
+                        Bathrooms = p.Bathrooms,
+                        Area = p.Area,
+                        PropertyType = p.PropertyType,
+                        Status = p.Status,
+                        Images = p.Images,
+                        OwnerName = p.User.Username,
+                        ListingType = p.ListingType,
+                        MonthlyRent = p.MonthlyRent,
+                        City = p.City,
+                        EcoScore = 0, // EcoScore is calculated property, not in DB
+                        CreatedAt = p.CreatedAt
+                    },
+                    // Project fields needed for scoring
+                    p.HasSolarPanels,
+                    p.HasEnergyEfficientAppliances,
+                    p.HasLEEDCertification,
+                    p.HasEnergyStarCertification,
+                    p.HasGreenRoof,
+                    p.YearBuilt,
+                    p.CreatedAt
+                })
                 .AsNoTracking()
+                .Take(50)
                 .ToListAsync();
 
             if (candidateProperties.Count == 0)
                 return new List<PropertySummaryResponseDto>();
 
-            // Score only the limited candidate set in memory
+            // Score in memory
             return candidateProperties
-                .Select(p => new { Property = p, Score = CalculatePropertyScore(p, today) })
+                .Select(x => new
+                {
+                    x.Property,
+                    Score = CalculatePropertyScoreFromProjection(x, today)
+                })
                 .OrderByDescending(x => x.Score)
                 .ThenBy(x => random.Next())
                 .Take(5)
-                .Select(x => MapToSummaryDto(x.Property))
+                .Select(x => x.Property)
                 .ToList();
         }
 
+        // Helper method for scoring projected data
+        private double CalculatePropertyScoreFromProjection(dynamic projectedProperty, DateTime today)
+        {
+            double score = 0;
+
+            // Eco-friendly features
+            if (projectedProperty.HasSolarPanels) score += 15;
+            if (projectedProperty.HasEnergyEfficientAppliances) score += 10;
+            if (projectedProperty.HasLEEDCertification) score += 20;
+            if (projectedProperty.HasEnergyStarCertification) score += 15;
+            if (projectedProperty.HasGreenRoof) score += 10;
+
+            // Newness bonus
+            var daysSinceCreated = (today - projectedProperty.CreatedAt.Date).TotalDays;
+            if (daysSinceCreated < 7) score += 25;
+            else if (daysSinceCreated < 30) score += 15;
+
+            // Year built - fix for dynamic type
+            int? yearBuilt = projectedProperty.YearBuilt;
+            if (yearBuilt.HasValue && yearBuilt.Value >= DateTime.Now.Year - 5)
+                score += 10;
+
+            return score;
+        }
+
         // Helper method for green homes
+        // PERFORMANCE FIX: Projection eliminates N+1 queries
         private async Task<List<PropertySummaryResponseDto>> GetGreenHomesData()
         {
             var properties = await _context.Properties
-                .Include(p => p.User)
                 .Where(p => p.Status == "Available" &&
                            (p.HasLEEDCertification ||
                             p.HasEnergyStarCertification ||
@@ -176,16 +301,31 @@ namespace ReState.Controllers
                             p.HasDoubleGlazedWindows ||
                             p.HasRainwaterHarvesting ||
                             p.HasGreenRoof))
+                .OrderByDescending(p => p.CreatedAt) // Order by CreatedAt instead of EcoScore (which is calculated)
+                .Select(p => new PropertySummaryResponseDto
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Address = p.Address,
+                    Price = p.Price,
+                    Bedrooms = p.Bedrooms,
+                    Bathrooms = p.Bathrooms,
+                    Area = p.Area,
+                    PropertyType = p.PropertyType,
+                    Status = p.Status,
+                    Images = p.Images,
+                    OwnerName = p.User.Username,  // Single JOIN - no N+1!
+                    ListingType = p.ListingType,
+                    MonthlyRent = p.MonthlyRent,
+                    City = p.City,
+                    EcoScore = 0, // EcoScore is calculated property, not in DB
+                    CreatedAt = p.CreatedAt
+                })
+                .AsNoTracking()
+                .Take(10)
                 .ToListAsync();
 
-            if (properties.Count == 0)
-                return new List<PropertySummaryResponseDto>();
-
-            return properties
-                .OrderByDescending(p => p.EcoScore)
-                .Take(10)
-                .Select(MapToSummaryDto)
-                .ToList();
+            return properties;
         }
 
         // Helper class for your-choice result
@@ -427,8 +567,10 @@ namespace ReState.Controllers
 
 
         // GET: api/properties/paginated?page=1&pageSize=10
+        // OPTIMIZED: Uses projection to avoid N+1 queries + Redis caching
         [HttpGet("paginated")]
         [AllowAnonymous]
+        [ResponseCache(Duration = 30, VaryByQueryKeys = new[] { "page", "pageSize" })]
         public async Task<IActionResult> GetPropertiesPaginated(
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
@@ -438,67 +580,45 @@ namespace ReState.Controllers
                 if (page < 1) page = 1;
                 if (pageSize < 1 || pageSize > 50) pageSize = 10;
 
+                // Try cache first
+                var cacheKey = $"properties:paginated:{page}:{pageSize}";
+                var cachedResult = await _cacheService.GetAsync<object>(cacheKey);
+                if (cachedResult != null)
+                {
+                    return Ok(cachedResult);
+                }
+
+                // Use projection to avoid N+1 - generates single SQL query with JOIN
                 var totalProperties = await _context.Properties.CountAsync();
                 var totalPages = (int)Math.Ceiling(totalProperties / (double)pageSize);
 
-                var properties = await _context.Properties
-                    .Include(p => p.User)
+                var response = await _context.Properties
                     .OrderByDescending(p => p.CreatedAt)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
+                    .Select(p => new PropertySummaryResponseDto
+                    {
+                        Id = p.Id,
+                        Title = p.Title,
+                        Address = p.Address,
+                        Price = p.Price,
+                        Bedrooms = p.Bedrooms,
+                        Bathrooms = p.Bathrooms,
+                        Area = p.Area,
+                        PropertyType = p.PropertyType,
+                        Status = p.Status,
+                        Images = p.Images,
+                        OwnerName = p.User.Username,  // Single JOIN, no N+1
+                        ListingType = p.ListingType,
+                        MonthlyRent = p.MonthlyRent,
+                        City = p.City,
+                        EcoScore = p.EcoScore,
+                        CreatedAt = p.CreatedAt
+                    })
+                    .AsNoTracking()
                     .ToListAsync();
 
-                var response = properties.Select(MapToSummaryDto).ToList();
-                /*
-                {
-                    Id = p.Id,
-                    Title = p.Title,
-                    Description = p.Description,
-                    Address = p.Address,
-                    Price = p.Price,
-                    Bedrooms = p.Bedrooms,
-                    Bathrooms = p.Bathrooms,
-                    Area = p.Area,
-                    PropertyType = p.PropertyType,
-                    Status = p.Status,
-                    Images = p.Images,
-                    UserId = p.UserId,
-                    OwnerName = p.User?.Username,
-                    CreatedAt = p.CreatedAt,
-                    OwnerPhone = p.User?.PhoneNumber,
-                    OwnerEmail = p.User?.Email,
-                    ListingType = p.ListingType,
-                    MonthlyRent = p.MonthlyRent,
-                    LeaseTermMonths = p.LeaseTermMonths,
-                    SecurityDeposit = p.SecurityDeposit,
-                    UtilitiesIncluded = p.UtilitiesIncluded,
-                    FurnishedStatus = p.FurnishedStatus,
-                    City = p.City,
-                    Neighborhood = p.Neighborhood,
-                    ZipCode = p.ZipCode,
-                    LotSize = p.LotSize,
-                    ParkingSpaces = p.ParkingSpaces,
-                    HasGarage = p.HasGarage,
-                    IsPetFriendly = p.IsPetFriendly,
-                    HasInUnitLaundry = p.HasInUnitLaundry,
-                    HasPool = p.HasPool,
-                    HasGym = p.HasGym,
-                    HasAirConditioning = p.HasAirConditioning,
-                    YearBuilt = p.YearBuilt,
-                    HasSolarPanels = p.HasSolarPanels,
-                    HasEnergyEfficientAppliances = p.HasEnergyEfficientAppliances,
-                    HasLEDLighting = p.HasLEDLighting,
-                    HasSmartThermostats = p.HasSmartThermostats,
-                    HasDoubleGlazedWindows = p.HasDoubleGlazedWindows,
-                    HasRainwaterHarvesting = p.HasRainwaterHarvesting,
-                    HasGreenRoof = p.HasGreenRoof,
-                    HasEnergyStarCertification = p.HasEnergyStarCertification,
-                    HasLEEDCertification = p.HasLEEDCertification,
-                    LEEDLevel = p.LEEDLevel,
-                }).ToList();
-                */
-
-                return Ok(new
+                var result = new
                 {
                     properties = response,
                     currentPage = page,
@@ -506,7 +626,12 @@ namespace ReState.Controllers
                     totalPages = totalPages,
                     totalProperties = totalProperties,
                     hasNextPage = page < totalPages
-                });
+                };
+
+                // Cache for 30 seconds
+                await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromSeconds(30));
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -809,8 +934,16 @@ namespace ReState.Controllers
                     .AsQueryable();
 
                 // --- LOCATION FILTERS ---
+                // Single city filter (backwards compatibility)
                 if (!string.IsNullOrWhiteSpace(filter.City))
                     query = query.Where(p => p.City != null && p.City.ToLower().Contains(filter.City.ToLower()));
+
+                // Multi-city filter
+                if (filter.Cities != null && filter.Cities.Any())
+                {
+                    var citiesLower = filter.Cities.Select(c => c.ToLower()).ToList();
+                    query = query.Where(p => p.City != null && citiesLower.Contains(p.City.ToLower()));
+                }
 
                 if (!string.IsNullOrWhiteSpace(filter.Neighborhood))
                     query = query.Where(p => p.Neighborhood != null && p.Neighborhood.ToLower().Contains(filter.Neighborhood.ToLower()));

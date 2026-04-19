@@ -234,6 +234,15 @@ const CreateProperty = () => {
       return;
     }
 
+    if (!form.city) {
+      showAlert({
+        type: "error",
+        title: t("common.error"),
+        message: t("validation.selectCity") || "Please select a city",
+      });
+      return;
+    }
+
     if (form.listingType === "Sale" && !form.price) {
       showAlert({
         type: "error",
@@ -402,17 +411,17 @@ const CreateProperty = () => {
         >
 
           {/* Images */}
-          <View className="mb-6 bg-white rounded p-5 shadow-sm border border-gray-100">
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
             <View className="flex-row items-center justify-between mb-4">
               <View>
-                <Text className="text-xl font-rubik-bold text-black-300 ml-1">
+                <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginLeft: 4 }}>
                   📸 {t("properties.propertyPhotos")}
                 </Text>
-                <Text className="text-sm font-rubik text-gray-600 mt-1 ml-1">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-Regular", color: colors.textSecondary, marginTop: 4, marginLeft: 4 }}>
                   {t("properties.addUpTo10Images")}
                 </Text>
               </View>
-              <View className="bg-white px-3 py-1.5 rounded-full">
+              <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 9999 }}>
                 <Text className="text-sm font-rubik-bold text-primary-300">
                   {images.length}/10
                 </Text>
@@ -436,7 +445,7 @@ const CreateProperty = () => {
               {images.length < 10 && (
                 <TouchableOpacity
                   onPress={pickImages}
-                  className="w-36 h-36 border-2 border-dashed border-primary-300 bg-white rounded-xl items-center justify-center"
+                  style={{ width: 144, height: 144, borderWidth: 2, borderStyle: "dashed", borderColor: "#0061FF", backgroundColor: colors.surface, borderRadius: 12, alignItems: "center", justifyContent: "center" }}
                 >
                   <Text className="text-5xl text-primary-300 mb-2">+</Text>
                   <Text className="text-primary-300 font-rubik-bold text-sm">
@@ -448,21 +457,26 @@ const CreateProperty = () => {
           </View>
 
           {/* Listing Type Section */}
-          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
               💼 {t("properties.listingType")}
             </Text>
             <View className="flex-row gap-3">
               <TouchableOpacity
                 onPress={() => setForm({ ...form, listingType: "Sale" })}
-                className={`flex-1 py-4 rounded-xl ${
-                  form.listingType === "Sale" ? "bg-primary-300" : "bg-gray-100"
-                }`}
+                style={{
+                  flex: 1,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  backgroundColor: form.listingType === "Sale" ? "#0061FF" : (isDark ? colors.surfaceElevated : "#F3F4F6")
+                }}
               >
                 <Text
-                  className={`text-center font-rubik-bold ${
-                    form.listingType === "Sale" ? "text-white" : "text-gray-700"
-                  }`}
+                  style={{
+                    textAlign: "center",
+                    fontFamily: "Rubik-Bold",
+                    color: form.listingType === "Sale" ? "#FFFFFF" : colors.textSecondary
+                  }}
                 >
                   🏷️ {t("properties.forSale")}
                 </Text>
@@ -470,14 +484,19 @@ const CreateProperty = () => {
 
               <TouchableOpacity
                 onPress={() => setForm({ ...form, listingType: "Rent" })}
-                className={`flex-1 py-4 rounded-xl ${
-                  form.listingType === "Rent" ? "bg-primary-300" : "bg-gray-100"
-                }`}
+                style={{
+                  flex: 1,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  backgroundColor: form.listingType === "Rent" ? "#0061FF" : (isDark ? colors.surfaceElevated : "#F3F4F6")
+                }}
               >
                 <Text
-                  className={`text-center font-rubik-bold ${
-                    form.listingType === "Rent" ? "text-white" : "text-gray-700"
-                  }`}
+                  style={{
+                    textAlign: "center",
+                    fontFamily: "Rubik-Bold",
+                    color: form.listingType === "Rent" ? "#FFFFFF" : colors.textSecondary
+                  }}
                 >
                   🔑 {t("properties.forRent")}
                 </Text>
@@ -486,8 +505,8 @@ const CreateProperty = () => {
           </View>
 
           {/* Basic Info */}
-          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
               🏠 {t("properties.basicInformation")}
             </Text>
 
@@ -501,12 +520,16 @@ const CreateProperty = () => {
               }
               className="mb-4"
             >
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                 {t("properties.propertyTitle")} *
               </Text>
-              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+              <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                 <Text
-                  className={`font-rubik text-base ${form.title ? "text-black" : "text-gray-400"}`}
+                  style={{
+                    fontFamily: "Rubik-Regular",
+                    fontSize: 16,
+                    color: form.title ? colors.text : colors.textMuted
+                  }}
                 >
                   {form.title || t("placeholders.enterPropertyTitle")}
                 </Text>
@@ -514,7 +537,7 @@ const CreateProperty = () => {
             </TouchableOpacity>
 
             <View className="mb-4">
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                 {t("properties.propertyType")} *
               </Text>
               <View className="flex-row flex-wrap gap-2">
@@ -524,18 +547,18 @@ const CreateProperty = () => {
                     onPress={() =>
                       setForm({ ...form, propertyType: type.name })
                     }
-                    className={`px-4 py-2.5 rounded-xl ${
-                      form.propertyType === type.name
-                        ? "bg-primary-300"
-                        : "bg-gray-100"
-                    }`}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      backgroundColor: form.propertyType === type.name ? "#0061FF" : (isDark ? colors.surfaceElevated : "#F3F4F6")
+                    }}
                   >
                     <Text
-                      className={`font-rubik-bold ${
-                        form.propertyType === type.name
-                          ? "text-white"
-                          : "text-gray-700"
-                      }`}
+                      style={{
+                        fontFamily: "Rubik-Bold",
+                        color: form.propertyType === type.name ? "#FFFFFF" : colors.textSecondary
+                      }}
                     >
                       {type.emoji} {type.name}
                     </Text>
@@ -558,15 +581,19 @@ const CreateProperty = () => {
               }
               className="mb-4"
             >
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                 {t("properties.price")} ($) *
               </Text>
-              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                 <Text className="text-2xl font-rubik-bold text-primary-300 mr-2">
                   $
                 </Text>
                 <Text
-                  className={`font-rubik-bold text-base ${form.price ? "text-black" : "text-gray-400"}`}
+                  style={{
+                    fontFamily: "Rubik-Bold",
+                    fontSize: 16,
+                    color: form.price ? colors.text : colors.textMuted
+                  }}
                 >
                   {form.price || "250,000"}
                 </Text>
@@ -584,15 +611,19 @@ const CreateProperty = () => {
               }
               className="mb-4"
             >
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                 {t("properties.monthlyRent")} ($) *
               </Text>
-              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                 <Text className="text-2xl font-rubik-bold text-primary-300 mr-2">
                   $
                 </Text>
                 <Text
-                  className={`font-rubik-bold text-base ${form.monthlyRent ? "text-black" : "text-gray-400"}`}
+                  style={{
+                    fontFamily: "Rubik-Bold",
+                    fontSize: 16,
+                    color: form.monthlyRent ? colors.text : colors.textMuted
+                  }}
                 >
                   {form.monthlyRent || "1,500"} / {t("properties.month")}
                 </Text>
@@ -602,8 +633,8 @@ const CreateProperty = () => {
 
           {/* Rental-Specific Section */}
           {form.listingType === "Rent" && (
-            <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+            <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
                 🔑 {t("properties.rentalDetails")}
               </Text>
 
@@ -619,12 +650,16 @@ const CreateProperty = () => {
                   }
                   className="flex-1"
                 >
-                  <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                     {t("properties.leaseTerm")} ({t("properties.months")})
                   </Text>
-                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                     <Text
-                      className={`font-rubik text-base ${form.leaseTermMonths ? "text-black" : "text-gray-400"}`}
+                      style={{
+                        fontFamily: "Rubik-Regular",
+                        fontSize: 16,
+                        color: form.leaseTermMonths ? colors.text : colors.textMuted
+                      }}
                     >
                       {form.leaseTermMonths || "12"} {t("properties.months")}
                     </Text>
@@ -642,12 +677,16 @@ const CreateProperty = () => {
                   }
                   className="flex-1"
                 >
-                  <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                  <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                     {t("properties.securityDeposit")} ($)
                   </Text>
-                  <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                  <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                     <Text
-                      className={`font-rubik text-base ${form.securityDeposit ? "text-black" : "text-gray-400"}`}
+                      style={{
+                        fontFamily: "Rubik-Regular",
+                        fontSize: 16,
+                        color: form.securityDeposit ? colors.text : colors.textMuted
+                      }}
                     >
                       ${form.securityDeposit || "1,500"}
                     </Text>
@@ -656,7 +695,7 @@ const CreateProperty = () => {
               </View>
 
               <View className="mb-4">
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   {t("properties.furnishedStatus")}
                 </Text>
                 <View className="flex-row gap-2">
@@ -666,18 +705,20 @@ const CreateProperty = () => {
                       onPress={() =>
                         setForm({ ...form, furnishedStatus: option.value })
                       }
-                      className={`flex-1 py-3 rounded-xl ${
-                        form.furnishedStatus === option.value
-                          ? "bg-primary-300"
-                          : "bg-gray-100"
-                      }`}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 12,
+                        borderRadius: 12,
+                        backgroundColor: form.furnishedStatus === option.value ? "#0061FF" : (isDark ? colors.surfaceElevated : "#F3F4F6")
+                      }}
                     >
                       <Text
-                        className={`text-center font-rubik-bold text-xs ${
-                          form.furnishedStatus === option.value
-                            ? "text-white"
-                            : "text-gray-700"
-                        }`}
+                        style={{
+                          textAlign: "center",
+                          fontFamily: "Rubik-Bold",
+                          fontSize: 12,
+                          color: form.furnishedStatus === option.value ? "#FFFFFF" : colors.textSecondary
+                        }}
                       >
                         {option.emoji} {option.label}
                       </Text>
@@ -686,10 +727,10 @@ const CreateProperty = () => {
                 </View>
               </View>
 
-              <View className="bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between">
+              <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <View className="flex-row items-center">
                   <Text className="text-2xl mr-3">⚡</Text>
-                  <Text className="font-rubik-semibold text-black-300">
+                  <Text style={{ fontFamily: "Rubik-SemiBold", color: colors.text }}>
                     {t("properties.utilitiesIncluded")}
                   </Text>
                 </View>
@@ -705,9 +746,9 @@ const CreateProperty = () => {
             </View>
           )}
 
-          {/* Location - keeping existing code */}
-          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+          {/* Location */}
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
               📍 {t("properties.locationDetails")}
             </Text>
 
@@ -721,12 +762,16 @@ const CreateProperty = () => {
               }
               className="mb-4"
             >
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                 {t("properties.fullAddress")} *
               </Text>
-              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+              <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                 <Text
-                  className={`font-rubik text-base ${form.address ? "text-black" : "text-gray-400"}`}
+                  style={{
+                    fontFamily: "Rubik-Regular",
+                    fontSize: 16,
+                    color: form.address ? colors.text : colors.textMuted
+                  }}
                 >
                   {form.address || t("placeholders.enterAddress")}
                 </Text>
@@ -738,12 +783,16 @@ const CreateProperty = () => {
                 onPress={() => setCityPickerVisible(true)}
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   {t("properties.city")} *
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik text-base ${form.city ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Regular",
+                      fontSize: 16,
+                      color: form.city ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.city || t("cities.selectCity")}
                   </Text>
@@ -761,12 +810,16 @@ const CreateProperty = () => {
                 }
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   {t("properties.zipCode")}
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik text-base ${form.zipCode ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Regular",
+                      fontSize: 16,
+                      color: form.zipCode ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.zipCode || t("placeholders.enterZipCode")}
                   </Text>
@@ -783,12 +836,16 @@ const CreateProperty = () => {
                 )
               }
             >
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                 {t("properties.neighborhood")}
               </Text>
-              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+              <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                 <Text
-                  className={`font-rubik text-base ${form.neighborhood ? "text-black" : "text-gray-400"}`}
+                  style={{
+                    fontFamily: "Rubik-Regular",
+                    fontSize: 16,
+                    color: form.neighborhood ? colors.text : colors.textMuted
+                  }}
                 >
                   {form.neighborhood || t("placeholders.enterNeighborhood")}
                 </Text>
@@ -796,9 +853,9 @@ const CreateProperty = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Size & Rooms - keeping existing */}
-          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+          {/* Size & Rooms */}
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
               📐 {t("properties.sizeAndRooms")}
             </Text>
 
@@ -814,12 +871,17 @@ const CreateProperty = () => {
                 }
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   🛏️ {t("properties.bedrooms")}
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik-bold text-base text-center ${form.bedrooms ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Bold",
+                      fontSize: 16,
+                      textAlign: "center",
+                      color: form.bedrooms ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.bedrooms || "3"}
                   </Text>
@@ -837,12 +899,17 @@ const CreateProperty = () => {
                 }
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   🚿 {t("properties.bathrooms")}
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik-bold text-base text-center ${form.bathrooms ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Bold",
+                      fontSize: 16,
+                      textAlign: "center",
+                      color: form.bathrooms ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.bathrooms || "2"}
                   </Text>
@@ -862,12 +929,16 @@ const CreateProperty = () => {
                 }
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   {t("properties.area")} {t("properties.squaremeter")}
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik text-base ${form.area ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Regular",
+                      fontSize: 16,
+                      color: form.area ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.area || "150"}
                   </Text>
@@ -885,12 +956,16 @@ const CreateProperty = () => {
                 }
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   {t("properties.lotSize")} {t("properties.squaremeter")}
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik text-base ${form.lotSize ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Regular",
+                      fontSize: 16,
+                      color: form.lotSize ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.lotSize || "200"}
                   </Text>
@@ -900,8 +975,8 @@ const CreateProperty = () => {
           </View>
 
           {/* Features */}
-          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
               ✨ {t("properties.propertyFeatures")}
             </Text>
 
@@ -917,12 +992,17 @@ const CreateProperty = () => {
                 }
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   🚗 {t("properties.parkingSpaces")}
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik-bold text-base text-center ${form.parkingSpaces ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Bold",
+                      fontSize: 16,
+                      textAlign: "center",
+                      color: form.parkingSpaces ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.parkingSpaces || "0"}
                   </Text>
@@ -940,12 +1020,17 @@ const CreateProperty = () => {
                 }
                 className="flex-1"
               >
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   📅 {t("properties.yearBuilt")}
                 </Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+                <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
                   <Text
-                    className={`font-rubik text-base text-center ${form.yearBuilt ? "text-black" : "text-gray-400"}`}
+                    style={{
+                      fontFamily: "Rubik-Regular",
+                      fontSize: 16,
+                      textAlign: "center",
+                      color: form.yearBuilt ? colors.text : colors.textMuted
+                    }}
                   >
                     {form.yearBuilt || "2020"}
                   </Text>
@@ -953,10 +1038,10 @@ const CreateProperty = () => {
               </TouchableOpacity>
             </View>
 
-            <View className="bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between">
+            <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <View className="flex-row items-center">
                 <Text className="text-2xl mr-3">🚙</Text>
-                <Text className="font-rubik-semibold text-black-300">
+                <Text style={{ fontFamily: "Rubik-SemiBold", color: colors.text }}>
                   {t("properties.hasGarage")}
                 </Text>
               </View>
@@ -972,8 +1057,8 @@ const CreateProperty = () => {
           </View>
 
           {/* Amenities */}
-          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: colors.border }]}>
+            <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
               🎯 {t("properties.amenities")}
             </Text>
 
@@ -1002,11 +1087,20 @@ const CreateProperty = () => {
             ].map(({ key, label, emoji }, index) => (
               <View
                 key={key}
-                className={`bg-gray-50 rounded-xl px-4 py-4 flex-row items-center justify-between ${index < 4 ? "mb-3" : ""}`}
+                style={{
+                  backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB",
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: index < 4 ? 12 : 0
+                }}
               >
                 <View className="flex-row items-center">
                   <Text className="text-2xl mr-3">{emoji}</Text>
-                  <Text className="font-rubik-semibold text-black-300">
+                  <Text style={{ fontFamily: "Rubik-SemiBold", color: colors.text }}>
                     {label}
                   </Text>
                 </View>
@@ -1021,8 +1115,8 @@ const CreateProperty = () => {
           </View>
 
           {/* 🌿 GREEN FEATURES SECTION */}
-          <View className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-green-200">
-            <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+          <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: isDark ? colors.border : "#86EFAC" }]}>
+            <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
               🌿 {t("greenHomes.greenFeatures") || "Green Features"}
             </Text>
 
@@ -1066,9 +1160,18 @@ const CreateProperty = () => {
             ].map(({ key, label }, index) => (
               <View
                 key={key}
-                className={`bg-green-50 rounded-xl px-4 py-4 flex-row items-center justify-between ${index < 8 ? "mb-3" : ""}`}
+                style={{
+                  backgroundColor: isDark ? colors.surfaceElevated : "#ECFDF5",
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: index < 8 ? 12 : 0
+                }}
               >
-                <Text className="font-rubik-semibold text-black-300">
+                <Text style={{ fontFamily: "Rubik-SemiBold", color: colors.text }}>
                   {label}
                 </Text>
                 <Switch
@@ -1083,7 +1186,7 @@ const CreateProperty = () => {
             {/* LEED Level Dropdown */}
             {form.hasLEEDCertification && (
               <View className="mt-4">
-                <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+                <Text style={{ fontSize: 14, fontFamily: "Rubik-SemiBold", color: colors.textSecondary, marginBottom: 8 }}>
                   LEED Level
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
@@ -1093,18 +1196,18 @@ const CreateProperty = () => {
                       onPress={() =>
                         setForm({ ...form, leedLevel: level.value })
                       }
-                      className={`px-4 py-2.5 rounded-xl ${
-                        form.leedLevel === level.value
-                          ? "bg-green-600"
-                          : "bg-gray-100"
-                      }`}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        backgroundColor: form.leedLevel === level.value ? "#059669" : (isDark ? colors.surfaceElevated : "#F3F4F6")
+                      }}
                     >
                       <Text
-                        className={`font-rubik-bold ${
-                          form.leedLevel === level.value
-                            ? "text-white"
-                            : "text-gray-700"
-                        }`}
+                        style={{
+                          fontFamily: "Rubik-Bold",
+                          color: form.leedLevel === level.value ? "#FFFFFF" : colors.textSecondary
+                        }}
                       >
                         {level.label}
                       </Text>
@@ -1128,13 +1231,17 @@ const CreateProperty = () => {
             }
             className="mb-6"
           >
-            <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <Text className="text-xl font-rubik-bold text-black-300 mb-4">
+            <View style={[cardShadow, { backgroundColor: colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }]}>
+              <Text style={{ fontSize: 20, fontFamily: "Rubik-Bold", color: colors.text, marginBottom: 16 }}>
                 📝 {t("properties.description")}
               </Text>
-              <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 min-h-32">
+              <View style={{ backgroundColor: isDark ? colors.surfaceElevated : "#F9FAFB", borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, minHeight: 128 }}>
                 <Text
-                  className={`font-rubik text-base ${form.description ? "text-black" : "text-gray-400"}`}
+                  style={{
+                    fontFamily: "Rubik-Regular",
+                    fontSize: 16,
+                    color: form.description ? colors.text : colors.textMuted
+                  }}
                 >
                   {form.description || t("properties.describeProperty")}
                 </Text>

@@ -490,6 +490,7 @@
     "enterSalePrice": "Ju lutemi vendosni çmimin e shitjes",
     "enterMonthlyRent": "Ju lutemi vendosni qiranë mujore",
     "failedToCreateProperty": "Dështoi krijimi i pronës",
+    "selectCity": "Ju lutemi zgjidhni një qytet",
     "deleteCommentConfirm": "Jeni të sigurt që dëshironi të fshini këtë koment?",
     "commentDeleted": "Komenti u fshi",
     "failedToDeleteComment": "Dështoi fshirja e komentit"
@@ -913,6 +914,7 @@
       "title": "Komuniteti",
       "subtitle": "Lidhu me përdorues të tjerë",
       "posts": "Postimet",
+      "postDetails": "Detajet e Postimit",
       "create": "Krijo",
       "createPost": "Krijo Postim",
       "newPost": "Postim i Ri",

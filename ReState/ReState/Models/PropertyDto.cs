@@ -181,6 +181,7 @@ namespace ReState.Models
     {
         // Location
         public string? City { get; set; }
+        public List<string>? Cities { get; set; } // Multi-city filter support
         public string? Neighborhood { get; set; }
         public string? ZipCode { get; set; }
 

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -10,12 +11,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  StyleSheet,
 } from "react-native";
-import CityPicker from "./CityPicker";
+import { ALBANIAN_CITIES } from "./CityPicker";
 
 // FIXED: Match backend DTO property names (PascalCase)
 export interface PropertyFilters {
   City?: string;
+  Cities?: string[];
   Neighborhood?: string;
   ZipCode?: string;
   MinPrice?: number;
@@ -75,6 +78,7 @@ export default function FilterModal({
   initialFilters = {},
 }: FilterModalProps) {
   const { t } = useTranslation();
+  const { colors } = useTheme();
 
   const STATUS_OPTIONS = [
     t("filters.statusAvailable"),
@@ -98,7 +102,6 @@ export default function FilterModal({
   ];
 
   const [filters, setFilters] = useState<PropertyFilters>(initialFilters);
-  const [cityPickerVisible, setCityPickerVisible] = useState(false);
 
   const updateFilter = (key: keyof PropertyFilters, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -128,16 +131,25 @@ export default function FilterModal({
     }
   };
 
+  const toggleCity = (city: string) => {
+    const current = filters.Cities || [];
+    if (current.includes(city)) {
+      updateFilter(
+        "Cities",
+        current.filter((c) => c !== city),
+      );
+    } else {
+      updateFilter("Cities", [...current, city]);
+    }
+  };
+
   const handleReset = () => {
     setFilters({});
   };
 
   const handleApply = () => {
-    // CRITICAL FIX: Only include boolean filters that are explicitly TRUE
-    // Remove false values as they would over-filter
     const cleanedFilters = Object.fromEntries(
       Object.entries(filters).filter(([key, value]) => {
-        // Keep non-boolean values if they're not empty
         if (typeof value !== "boolean") {
           return (
             value !== undefined &&
@@ -146,7 +158,6 @@ export default function FilterModal({
             (Array.isArray(value) ? value.length > 0 : true)
           );
         }
-        // For boolean values, ONLY keep if true
         return value === true;
       }),
     );
@@ -167,79 +178,90 @@ export default function FilterModal({
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        style={styles.container}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <View className="flex-1 bg-white">
+        <View style={[styles.content, { backgroundColor: colors.background }]}>
           {/* Header */}
-          <View className="px-6 pt-12 pb-4 border-b border-gray-200">
-            <View className="flex-row justify-between items-center">
-              <Text className="text-2xl font-rubik-bold">
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={styles.headerRow}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
                 {t("filters.filters")}
               </Text>
               <TouchableOpacity onPress={onClose}>
-                <Text className="text-primary-300 text-lg">✕</Text>
+                <Text style={[styles.closeButton, { color: colors.primary }]}>✕</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <ScrollView
-            className="flex-1 px-6"
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
           {/* Listing Type Toggle */}
-          <View className="mt-6">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               🏷️ {t("filters.listingType")}
             </Text>
-            <View className="flex-row gap-3">
+            <View style={styles.row}>
               <TouchableOpacity
                 onPress={() => updateFilter("ListingType", "Sale")}
-                className={`flex-1 py-3 rounded-xl ${
+                style={[
+                  styles.toggleButton,
                   filters.ListingType === "Sale"
-                    ? "bg-primary-300"
-                    : "bg-gray-100"
-                }`}
+                    ? { backgroundColor: colors.primary }
+                    : { backgroundColor: colors.surfaceElevated },
+                ]}
               >
                 <Text
-                  className={`text-center font-rubik-bold ${
+                  style={[
+                    styles.toggleButtonText,
                     filters.ListingType === "Sale"
-                      ? "text-white"
-                      : "text-black-300"
-                  }`}
+                      ? styles.toggleButtonTextActive
+                      : { color: colors.text },
+                  ]}
                 >
                   {t("filters.forSale")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => updateFilter("ListingType", "Rent")}
-                className={`flex-1 py-3 rounded-xl ${
+                style={[
+                  styles.toggleButton,
                   filters.ListingType === "Rent"
-                    ? "bg-primary-300"
-                    : "bg-gray-100"
-                }`}
+                    ? { backgroundColor: colors.primary }
+                    : { backgroundColor: colors.surfaceElevated },
+                ]}
               >
                 <Text
-                  className={`text-center font-rubik-bold ${
+                  style={[
+                    styles.toggleButtonText,
                     filters.ListingType === "Rent"
-                      ? "text-white"
-                      : "text-black-300"
-                  }`}
+                      ? styles.toggleButtonTextActive
+                      : { color: colors.text },
+                  ]}
                 >
                   {t("filters.forRent")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => updateFilter("ListingType", undefined)}
-                className={`flex-1 py-3 rounded-xl ${
-                  !filters.ListingType ? "bg-primary-300" : "bg-gray-100"
-                }`}
+                style={[
+                  styles.toggleButton,
+                  !filters.ListingType
+                    ? { backgroundColor: colors.primary }
+                    : { backgroundColor: colors.surfaceElevated },
+                ]}
               >
                 <Text
-                  className={`text-center font-rubik-bold ${
-                    !filters.ListingType ? "text-white" : "text-black-300"
-                  }`}
+                  style={[
+                    styles.toggleButtonText,
+                    !filters.ListingType
+                      ? styles.toggleButtonTextActive
+                      : { color: colors.text },
+                  ]}
                 >
                   {t("filters.all")}
                 </Text>
@@ -248,48 +270,83 @@ export default function FilterModal({
           </View>
 
           {/* Location Section */}
-          <View className="mt-6">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               📍 {t("properties.location")}
             </Text>
-            <TouchableOpacity
-              onPress={() => setCityPickerVisible(true)}
-              className="bg-gray-100 rounded-lg px-4 py-3 mb-3 flex-row justify-between items-center"
+
+            {/* Cities Multi-Select */}
+            <Text style={[styles.subsectionTitle, { color: colors.textSecondary, marginBottom: 8 }]}>
+              {t("filters.selectCities") || "Select Cities"}
+            </Text>
+            <ScrollView
+              horizontal={false}
+              style={{ maxHeight: 180, marginBottom: 16 }}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
             >
-              <Text
-                className={`font-rubik ${filters.City ? "text-black-300" : "text-gray-400"}`}
-              >
-                {filters.City || t("properties.selectCity") || "Select City"}
+              <View style={styles.chips}>
+                {ALBANIAN_CITIES.map((city) => (
+                  <TouchableOpacity
+                    key={city}
+                    onPress={() => toggleCity(city)}
+                    style={[
+                      styles.chip,
+                      filters.Cities?.includes(city)
+                        ? { backgroundColor: colors.primary }
+                        : { backgroundColor: colors.surfaceElevated },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        filters.Cities?.includes(city)
+                          ? styles.chipTextActive
+                          : { color: colors.text },
+                      ]}
+                    >
+                      {city}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            {filters.Cities && filters.Cities.length > 0 && (
+              <Text style={{ fontSize: 12, fontFamily: "Rubik-Regular", color: colors.primary, marginBottom: 12 }}>
+                {filters.Cities.length} {filters.Cities.length === 1 ? t("filters.citySelected") || "city selected" : t("filters.citiesSelected") || "cities selected"}
               </Text>
-              <Text className="text-gray-400">▼</Text>
-            </TouchableOpacity>
+            )}
+
             <TextInput
               placeholder={t("properties.neighborhood")}
+              placeholderTextColor={colors.textMuted}
               value={filters.Neighborhood}
               onChangeText={(text) => updateFilter("Neighborhood", text)}
-              className="bg-gray-100 rounded-lg px-4 py-3 mb-3 font-rubik"
+              style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
             />
             <TextInput
               placeholder={t("properties.zipCode")}
+              placeholderTextColor={colors.textMuted}
               value={filters.ZipCode}
               onChangeText={(text) => updateFilter("ZipCode", text)}
-              className="bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+              style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
             />
           </View>
 
-          {/* Price/Rent Range - Conditional */}
-          <View className="mt-6">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          {/* Price/Rent Range */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               💰{" "}
               {isRental
                 ? t("filters.monthlyRentRange")
                 : t("filters.priceRange")}
             </Text>
-            <View className="flex-row gap-3">
+            <View style={styles.row}>
               {isRental ? (
                 <>
                   <TextInput
                     placeholder={t("filters.minRent")}
+                    placeholderTextColor={colors.textMuted}
                     value={filters.MinMonthlyRent?.toString()}
                     onChangeText={(text) =>
                       updateFilter(
@@ -298,10 +355,11 @@ export default function FilterModal({
                       )
                     }
                     keyboardType="numeric"
-                    className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                    style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                   />
                   <TextInput
                     placeholder={t("filters.maxRent")}
+                    placeholderTextColor={colors.textMuted}
                     value={filters.MaxMonthlyRent?.toString()}
                     onChangeText={(text) =>
                       updateFilter(
@@ -310,13 +368,14 @@ export default function FilterModal({
                       )
                     }
                     keyboardType="numeric"
-                    className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                    style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                   />
                 </>
               ) : (
                 <>
                   <TextInput
                     placeholder={t("filters.minPrice")}
+                    placeholderTextColor={colors.textMuted}
                     value={filters.MinPrice?.toString()}
                     onChangeText={(text) =>
                       updateFilter(
@@ -325,10 +384,11 @@ export default function FilterModal({
                       )
                     }
                     keyboardType="numeric"
-                    className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                    style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                   />
                   <TextInput
                     placeholder={t("filters.maxPrice")}
+                    placeholderTextColor={colors.textMuted}
                     value={filters.MaxPrice?.toString()}
                     onChangeText={(text) =>
                       updateFilter(
@@ -337,7 +397,7 @@ export default function FilterModal({
                       )
                     }
                     keyboardType="numeric"
-                    className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                    style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                   />
                 </>
               )}
@@ -346,17 +406,18 @@ export default function FilterModal({
 
           {/* Rental-Specific Filters */}
           {isRental && (
-            <View className="mt-6">
-              <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 🔑 {t("filters.rentalOptions")}
               </Text>
 
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>
                 {t("filters.leaseTermRange")}
               </Text>
-              <View className="flex-row gap-3 mb-3">
+              <View style={styles.row}>
                 <TextInput
                   placeholder={t("filters.minMonths")}
+                  placeholderTextColor={colors.textMuted}
                   value={filters.MinLeaseTermMonths?.toString()}
                   onChangeText={(text) =>
                     updateFilter(
@@ -365,10 +426,11 @@ export default function FilterModal({
                     )
                   }
                   keyboardType="numeric"
-                  className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                  style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                 />
                 <TextInput
                   placeholder={t("filters.maxMonths")}
+                  placeholderTextColor={colors.textMuted}
                   value={filters.MaxLeaseTermMonths?.toString()}
                   onChangeText={(text) =>
                     updateFilter(
@@ -377,16 +439,17 @@ export default function FilterModal({
                     )
                   }
                   keyboardType="numeric"
-                  className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                  style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                 />
               </View>
 
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>
                 {t("filters.securityDepositRange")}
               </Text>
-              <View className="flex-row gap-3 mb-3">
+              <View style={styles.row}>
                 <TextInput
                   placeholder={t("filters.minDeposit")}
+                  placeholderTextColor={colors.textMuted}
                   value={filters.MinSecurityDeposit?.toString()}
                   onChangeText={(text) =>
                     updateFilter(
@@ -395,10 +458,11 @@ export default function FilterModal({
                     )
                   }
                   keyboardType="numeric"
-                  className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                  style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                 />
                 <TextInput
                   placeholder={t("filters.maxDeposit")}
+                  placeholderTextColor={colors.textMuted}
                   value={filters.MaxSecurityDeposit?.toString()}
                   onChangeText={(text) =>
                     updateFilter(
@@ -407,14 +471,14 @@ export default function FilterModal({
                     )
                   }
                   keyboardType="numeric"
-                  className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                  style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                 />
               </View>
 
-              <Text className="text-sm font-rubik-semibold text-gray-700 mb-2">
+              <Text style={[styles.subsectionTitle, { color: colors.textSecondary }]}>
                 {t("filters.furnishedStatus")}
               </Text>
-              <View className="flex-row flex-wrap gap-2 mb-3">
+              <View style={styles.chips}>
                 {FURNISHED_OPTIONS.map((option) => (
                   <TouchableOpacity
                     key={option}
@@ -424,18 +488,20 @@ export default function FilterModal({
                         filters.FurnishedStatus === option ? undefined : option,
                       )
                     }
-                    className={`px-4 py-2 rounded-full ${
+                    style={[
+                      styles.chip,
                       filters.FurnishedStatus === option
-                        ? "bg-primary-300"
-                        : "bg-gray-100"
-                    }`}
+                        ? { backgroundColor: colors.primary }
+                        : { backgroundColor: colors.surfaceElevated },
+                    ]}
                   >
                     <Text
-                      className={`font-rubik ${
+                      style={[
+                        styles.chipText,
                         filters.FurnishedStatus === option
-                          ? "text-white"
-                          : "text-black-300"
-                      }`}
+                          ? styles.chipTextActive
+                          : { color: colors.text },
+                      ]}
                     >
                       {option}
                     </Text>
@@ -443,8 +509,8 @@ export default function FilterModal({
                 ))}
               </View>
 
-              <View className="flex-row justify-between items-center bg-gray-100 rounded-lg px-4 py-3">
-                <Text className="font-rubik text-black-300">
+              <View style={[styles.switchRow, { backgroundColor: colors.surfaceElevated }]}>
+                <Text style={[styles.switchLabel, { color: colors.text }]}>
                   {t("filters.utilitiesIncluded")}
                 </Text>
                 <Switch
@@ -452,7 +518,7 @@ export default function FilterModal({
                   onValueChange={(value) =>
                     updateFilter("UtilitiesIncluded", value || undefined)
                   }
-                  trackColor={{ false: "#d1d5db", true: "#0061FF" }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="#ffffff"
                 />
               </View>
@@ -460,27 +526,29 @@ export default function FilterModal({
           )}
 
           {/* Property Type */}
-          <View className="mt-6">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               🏠 {t("properties.propertyType")}
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View style={styles.chips}>
               {PROPERTY_TYPES.map((type) => (
                 <TouchableOpacity
                   key={type.name}
                   onPress={() => togglePropertyType(type.name)}
-                  className={`px-4 py-2 rounded-full ${
+                  style={[
+                    styles.chip,
                     filters.PropertyTypes?.includes(type.name)
-                      ? "bg-primary-300"
-                      : "bg-gray-100"
-                  }`}
+                      ? { backgroundColor: colors.primary }
+                      : { backgroundColor: colors.surfaceElevated },
+                  ]}
                 >
                   <Text
-                    className={`font-rubik ${
+                    style={[
+                      styles.chipText,
                       filters.PropertyTypes?.includes(type.name)
-                        ? "text-white"
-                        : "text-black-300"
-                    }`}
+                        ? styles.chipTextActive
+                        : { color: colors.text },
+                    ]}
                   >
                     {type.emoji} {type.name}
                   </Text>
@@ -490,17 +558,18 @@ export default function FilterModal({
           </View>
 
           {/* Bedrooms & Bathrooms */}
-          <View className="mt-6">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               🛏️ {t("properties.bedrooms")} & 🛁 {t("properties.bathrooms")}
             </Text>
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <Text className="text-sm font-rubik text-gray-600 mb-2">
+            <View style={styles.row}>
+              <View style={styles.flex1}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
                   {t("filters.minBedrooms")}
                 </Text>
                 <TextInput
                   placeholder="0"
+                  placeholderTextColor={colors.textMuted}
                   value={filters.MinBedrooms?.toString()}
                   onChangeText={(text) =>
                     updateFilter(
@@ -509,15 +578,16 @@ export default function FilterModal({
                     )
                   }
                   keyboardType="numeric"
-                  className="bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                  style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                 />
               </View>
-              <View className="flex-1">
-                <Text className="text-sm font-rubik text-gray-600 mb-2">
+              <View style={styles.flex1}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
                   {t("filters.minBathrooms")}
                 </Text>
                 <TextInput
                   placeholder="0"
+                  placeholderTextColor={colors.textMuted}
                   value={filters.MinBathrooms?.toString()}
                   onChangeText={(text) =>
                     updateFilter(
@@ -526,42 +596,44 @@ export default function FilterModal({
                     )
                   }
                   keyboardType="numeric"
-                  className="bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                  style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
                 />
               </View>
             </View>
           </View>
 
           {/* Square Footage */}
-          <View className="mt-6">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               📐 {t("properties.area")} {t("properties.squaremeter")}
             </Text>
-            <View className="flex-row gap-3">
+            <View style={styles.row}>
               <TextInput
                 placeholder={t("filters.minArea")}
+                placeholderTextColor={colors.textMuted}
                 value={filters.MinArea?.toString()}
                 onChangeText={(text) =>
                   updateFilter("MinArea", text ? parseFloat(text) : undefined)
                 }
                 keyboardType="numeric"
-                className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
               />
               <TextInput
                 placeholder={t("filters.maxArea")}
+                placeholderTextColor={colors.textMuted}
                 value={filters.MaxArea?.toString()}
                 onChangeText={(text) =>
                   updateFilter("MaxArea", text ? parseFloat(text) : undefined)
                 }
                 keyboardType="numeric"
-                className="flex-1 bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+                style={[styles.halfInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
               />
             </View>
           </View>
 
           {/* Amenities */}
-          <View className="mt-6 mb-6">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               ✨ {t("properties.amenities")}
             </Text>
             {[
@@ -582,9 +654,9 @@ export default function FilterModal({
             ].map(({ key, label }) => (
               <View
                 key={key}
-                className="flex-row justify-between items-center bg-gray-100 rounded-lg px-4 py-3 mb-2"
+                style={[styles.switchRow, { backgroundColor: colors.surfaceElevated }]}
               >
-                <Text className="font-rubik text-black-300">{label}</Text>
+                <Text style={[styles.switchLabel, { color: colors.text }]}>{label}</Text>
                 <Switch
                   value={
                     (filters[key as keyof PropertyFilters] as boolean) || false
@@ -592,7 +664,7 @@ export default function FilterModal({
                   onValueChange={(value) =>
                     updateFilter(key as any, value || undefined)
                   }
-                  trackColor={{ false: "#d1d5db", true: "#0061FF" }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="#ffffff"
                 />
               </View>
@@ -600,8 +672,8 @@ export default function FilterModal({
           </View>
 
           {/* Green Features */}
-          <View className="mt-6 mb-32">
-            <Text className="text-lg font-rubik-bold text-black-300 mb-3">
+          <View style={[styles.section, styles.lastSection]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               🌿 {t("greenHomes.greenFeatures")}
             </Text>
             {[
@@ -641,9 +713,9 @@ export default function FilterModal({
             ].map(({ key, label }) => (
               <View
                 key={key}
-                className="flex-row justify-between items-center bg-green-50 rounded-lg px-4 py-3 mb-2"
+                style={[styles.switchRow, { backgroundColor: colors.surfaceElevated }]}
               >
-                <Text className="font-rubik text-black-300">{label}</Text>
+                <Text style={[styles.switchLabel, { color: colors.text }]}>{label}</Text>
                 <Switch
                   value={
                     (filters[key as keyof PropertyFilters] as boolean) || false
@@ -651,56 +723,197 @@ export default function FilterModal({
                   onValueChange={(value) =>
                     updateFilter(key as any, value || undefined)
                   }
-                  trackColor={{ false: "#d1d5db", true: "#10B981" }}
+                  trackColor={{ false: colors.border, true: "#10B981" }}
                   thumbColor="#ffffff"
                 />
               </View>
             ))}
 
-            <Text className="text-sm font-rubik-semibold text-gray-700 mb-2 mt-3">
+            <Text style={[styles.subsectionTitle, { color: colors.textSecondary, marginTop: 12 }]}>
               {t("greenHomes.minEcoScore")}
             </Text>
             <TextInput
               placeholder={t("filters.minEcoScorePlaceholder")}
+              placeholderTextColor={colors.textMuted}
               value={filters.MinEcoScore?.toString() || ""}
               onChangeText={(text) =>
                 updateFilter("MinEcoScore", text ? parseInt(text) : undefined)
               }
               keyboardType="numeric"
-              className="bg-gray-100 rounded-lg px-4 py-3 font-rubik"
+              style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
             />
           </View>
         </ScrollView>
 
           {/* Footer Buttons */}
-          <View className="px-6 py-4 border-t border-gray-200 flex-row gap-3">
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
             <TouchableOpacity
               onPress={handleReset}
-              className="flex-1 bg-gray-200 rounded-lg py-4"
+              style={[styles.footerButton, { backgroundColor: colors.surfaceElevated }]}
             >
-              <Text className="text-center font-rubik-bold text-black-300">
+              <Text style={[styles.footerButtonText, { color: colors.text }]}>
                 {t("common.reset")}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleApply}
-              className="flex-1 bg-primary-300 rounded-lg py-4"
+              style={[styles.footerButton, { backgroundColor: colors.primary }]}
             >
-              <Text className="text-center font-rubik-bold text-white">
+              <Text style={[styles.footerButtonText, styles.footerButtonTextActive]}>
                 {t("common.apply")}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
-
-      {/* City Picker Modal */}
-      <CityPicker
-        visible={cityPickerVisible}
-        selectedCity={filters.City || ""}
-        onClose={() => setCityPickerVisible(false)}
-        onSelectCity={(city) => updateFilter("City", city)}
-      />
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontFamily: "Rubik-Bold",
+  },
+  closeButton: {
+    fontSize: 24,
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  scrollContent: {
+    paddingBottom: 32,
+  },
+  section: {
+    marginTop: 24,
+  },
+  lastSection: {
+    marginBottom: 120,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: "Rubik-Bold",
+    marginBottom: 12,
+  },
+  subsectionTitle: {
+    fontSize: 14,
+    fontFamily: "Rubik-SemiBold",
+    marginBottom: 8,
+  },
+  label: {
+    fontSize: 13,
+    fontFamily: "Rubik-Regular",
+    marginBottom: 8,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  toggleButtonText: {
+    textAlign: "center",
+    fontFamily: "Rubik-Bold",
+  },
+  toggleButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  input: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  inputText: {
+    fontFamily: "Rubik-Regular",
+  },
+  textInput: {
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontFamily: "Rubik-Regular",
+    marginBottom: 12,
+  },
+  halfInput: {
+    flex: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontFamily: "Rubik-Regular",
+  },
+  flex1: {
+    flex: 1,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  chipText: {
+    fontFamily: "Rubik-Regular",
+  },
+  chipTextActive: {
+    color: "#FFFFFF",
+  },
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  switchLabel: {
+    fontFamily: "Rubik-Regular",
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+  },
+  footerButton: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 16,
+  },
+  footerButtonText: {
+    textAlign: "center",
+    fontFamily: "Rubik-Bold",
+  },
+  footerButtonTextActive: {
+    color: "#FFFFFF",
+  },
+});
