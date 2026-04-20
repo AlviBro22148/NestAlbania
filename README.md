@@ -1,4 +1,4 @@
-[README.md](https://github.com/user-attachments/files/26911465/README.md)# NestAlbania — Full-Stack Real Estate Platform
+# NestAlbania — Full-Stack Real Estate Platform
 
 > A production-ready real estate platform built for the Albanian market, delivering property listings, community features, and market intelligence across a mobile app, admin dashboard, and REST API.
 
